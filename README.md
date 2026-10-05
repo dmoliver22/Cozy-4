@@ -6,6 +6,14 @@ A relaxing, physics-driven builder inspired by the rice terraces of Southeast As
 
 This repository is the **Stage 1 web toy**: one mountain, three light goals (plus a second set once those are met), built to run in a browser and upload to itch.io as-is.
 
+![Flooded terraces, a hamlet of stilt houses and a water wheel](docs/show-close.jpg)
+
+| Dawn | Dusk |
+|---|---|
+| ![The mountain at dawn](docs/show-dawn.jpg) | ![The mountain at dusk](docs/show-dusk.jpg) |
+
+*Screenshots are rendered headless with software WebGL; a real GPU looks crisper.*
+
 ## Play
 
 ```bash

@@ -55,6 +55,11 @@ body {
   pointer-events: auto;
 }
 
+#ui > .hud-off {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .hidden-ui #ui > *:not(.photo-flash) {
   opacity: 0 !important;
   pointer-events: none !important;
@@ -79,6 +84,7 @@ button:focus-visible {
 .title {
   position: absolute;
   inset: 0;
+  z-index: 5;
   display: flex;
   flex-direction: column;
   align-items: center;

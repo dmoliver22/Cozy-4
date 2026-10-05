@@ -10,6 +10,7 @@ import { Post } from './render/post.js';
 import { UI } from './ui/ui.js';
 import { TOOLS } from './game/tools.js';
 import { saveGame, loadGame, hasSave, clearSave } from './game/save.js';
+import { AudioEngine } from './audio/audio.js';
 
 const canvas = document.getElementById('scene');
 const root = document.getElementById('ui');
@@ -72,6 +73,15 @@ const hooks = {
   async start(fresh) {
     if (started) return;
     started = true;
+    // create the audio context synchronously, inside the click
+    let actx = null;
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      actx = new AC();
+      actx.resume();
+    } catch {
+      actx = null;
+    }
     if (fresh) clearSave();
     else if (hasSave()) {
       try {
@@ -89,9 +99,9 @@ const hooks = {
     cam.goal.ty = 8;
     ui.start();
     try {
-      const { AudioEngine } = await import('./audio/audio.js');
+      if (!actx) throw new Error('no AudioContext');
       audio = new AudioEngine();
-      await audio.start();
+      await audio.start(actx);
       game.audio = audio;
       ui.setSound(true);
     } catch (err) {

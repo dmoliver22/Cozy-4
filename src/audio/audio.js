@@ -27,9 +27,10 @@ export class AudioEngine {
     this.lastCarve = 0;
   }
 
-  async start() {
+  /** Pass a context created inside the user's click so strict browsers allow sound. */
+  async start(existing) {
     const AC = window.AudioContext || window.webkitAudioContext;
-    const ctx = new AC();
+    const ctx = existing || new AC();
     this.ctx = ctx;
     if (ctx.state !== 'running') await ctx.resume();
     this.master = ctx.createGain();

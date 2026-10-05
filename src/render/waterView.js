@@ -141,10 +141,11 @@ export class WaterView {
           if (sw > 0.001 && dmax > ${WET.toFixed(4)}) {
             float S = ss / sw;
             float pond = smoothstep(0.05, 0.18, dmax);
-            if (G > S - 0.5) {
-              // still water (or its shore): flat at the water level, unless it's only a sheet
-              y = mix(G + depth, S, pond);
-              film = 1.0 - pond;
+            if (depth > 0.12 || G > S - 0.5) {
+              // standing water, or its shore: flat at the water level (the shore is
+              // clipped per pixel), unless all there is here is a thin sheet
+              y = G >= S - 0.02 ? S : mix(G + depth, S, pond);
+              film = G >= S - 0.02 ? 0.0 : 1.0 - pond;
             } else {
               // over a drop: only a thin sheet running down the face
               y = depth > 0.003 ? G + depth : G - 1.0;

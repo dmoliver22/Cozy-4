@@ -73,6 +73,7 @@ export class UI {
     this.goalsEl.innerHTML = `<header><h2></h2><span class="time"></span></header><ul class="goal-list"></ul>`;
     this.goalsEl.querySelector('header').addEventListener('click', () => this.goalsEl.classList.toggle('collapsed'));
     this.goalsEl.style.opacity = 0;
+    this.goalsEl.classList.add('hud-off');
     r.appendChild(this.goalsEl);
 
     // top bar
@@ -84,6 +85,7 @@ export class UI {
     this.btnHelp = this._iconBtn('help', 'How to play', () => this.toggleHelp());
     this.topbar.append(this.btnSound, this.btnSun, this.btnRain, this.btnPhoto, this.btnHelp);
     this.topbar.style.opacity = 0;
+    this.topbar.classList.add('hud-off');
     r.appendChild(this.topbar);
 
     // tray
@@ -133,6 +135,7 @@ export class UI {
     this.tray.append(this.undoBtn, this.redoBtn);
     this.trayWrap.append(this.sub, this.tray);
     this.trayWrap.style.opacity = 0;
+    this.trayWrap.classList.add('hud-off');
     r.appendChild(this.trayWrap);
 
     this.hintEl = el('div', 'hint');
@@ -191,6 +194,7 @@ export class UI {
     this.started = true;
     this.title.classList.add('gone');
     for (const e of [this.goalsEl, this.topbar, this.trayWrap]) {
+      e.classList.remove('hud-off');
       e.style.transition = 'opacity 1.2s ease 0.6s';
       e.style.opacity = 1;
     }

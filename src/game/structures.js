@@ -118,11 +118,18 @@ export class Structures {
       }
       let e = k;
       while (e < samples.length && wet[e]) e++;
-      if (k > 0 && e < samples.length) {
+      if (k > 0 && e < samples.length && e - k >= 2) {
         const A = samples[Math.max(0, k - 2)];
         const B = samples[Math.min(samples.length - 1, e + 1)];
         const L = Math.hypot(B.x - A.x, B.z - A.z);
-        if (L > 1.4 && L < 16 && Math.abs(g.groundAt(A.x, A.z) - g.groundAt(B.x, B.z)) < 3.5) this.buildBridge(A, B);
+        // only span water the path actually crosses (not a path running along a bank)
+        const mid = samples[(k + e) >> 1];
+        const cm = g.cellAt(mid.x, mid.z);
+        const fu = g.water.u[cm];
+        const fv = g.water.v[cm];
+        const fs = Math.hypot(fu, fv);
+        const across = fs < 0.2 || Math.abs(((B.x - A.x) * fu + (B.z - A.z) * fv) / (L * fs)) < 0.75;
+        if (across && L > 1.4 && L < 16 && Math.abs(g.groundAt(A.x, A.z) - g.groundAt(B.x, B.z)) < 3.5) this.buildBridge(A, B);
       }
       k = e;
     }
