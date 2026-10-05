@@ -64,9 +64,9 @@ Nearly everything on screen is simulated rather than animated.
 | **Soil water** | Infiltration into dry soil (paddies have a puddled hardpan), Darcy-like downhill seepage and diffusion, evapotranspiration, and evaporation from open water. | `src/sim/water.js` |
 | **Erosion** | Suspended-sediment capacity from flow speed and slope: erosion, semi-Lagrangian transport, deposition. Silt that settles in paddies becomes fertility instead of filling them. | `src/sim/water.js` |
 | **Granular soil** | Angle-of-repose relaxation (thermal erosion) for loose soil. Terraces, stone risers and channels are retained. | `src/sim/terrain.js` |
-| **Rigid bodies** | [Rapier](https://rapier.rs) 3D. The sculpted heightfield is mirrored into a Rapier heightfield collider whenever the land changes. Cut soil breaks off as clods that tumble downhill and dissolve where they settle (adding soil, or silt in a paddy). Seeds are thrown from the pouch, arc, bounce, roll off slopes that are too steep and take root where they come to rest. Flower petals drop and float. | `src/physics/physics.js` |
+| **Rigid bodies** | [Rapier](https://rapier.rs) 3D. The sculpted heightfield is mirrored into a Rapier heightfield collider whenever the land changes. Cut soil breaks off as clods that tumble downhill and dissolve where they settle (adding soil, or silt in a paddy). Seeds are thrown from the pouch, arc, bounce, slide off slopes that are too steep and take root where they come to rest. Flower petals and leaves shaken loose by gusts flutter down and float. | `src/physics/physics.js` |
 | **Joints** | Rope bridges hang their planks on Rapier spherical joints, so the deck settles into a catenary, sways in gusts, and drops into the stream if you dig out a bank. Water wheels are rigid bodies on revolute joints, turned by drag from the simulated current on each submerged paddle. | `src/game/structures.js` |
-| **Water ↔ bodies** | Archimedes buoyancy from submerged volume, plus drag toward the local current, so petals ride the flow over bunds and down waterfalls. Impacts push water outward, and the pipe model turns that into ripples. | `src/physics/physics.js` |
+| **Water ↔ bodies** | Archimedes buoyancy from submerged volume, plus drag toward the local current, so petals ride the flow over bunds and down waterfalls. Impacts, and every step of a wading buffalo or villager, push water outward, and the pipe model turns that into real ripples. | `src/physics/physics.js` |
 | **Wind** | A veering breeze with travelling gust fronts drives a field of damped spring oscillators, so rice and trees sway as waves roll across the paddies. | `src/sim/wind.js` |
 | **Particles** | Waterfall spray (ballistic plus drag), chimney smoke (buoyant hot air that cools), dust, rain, fluttering petals and fireflies. | `src/render/particles.js` |
 | **Life** | Crops grow by how well the local water suits them. Homes appear on a spring-damper with squash and stretch, villagers steer over the heightfield preferring paths and avoiding deep water, buffalo wade in paddies, and birds flock as boids. | `src/game/*.js` |
@@ -86,7 +86,7 @@ src/
   game/       crops, village, structures (bridges, wheels), nature (trees, birds), goals, tools + undo, camera, save, Game orchestrator
   ui/         tray, goal card, hints, title screen
   audio/      procedural audio engine
-test/         simulation tests (mass conservation, paddy filling, channels, undo, the first-cut cascade)
+test/         simulation tests (mass conservation, paddy filling, channels, undo, local undo records, the first-cut cascade)
 ```
 
 ## Shipping to itch.io
