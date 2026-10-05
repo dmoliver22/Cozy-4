@@ -354,6 +354,13 @@ export class AudioEngine {
     this._flute([7, 9, 7, 4, 2, 4], 3.2);
   }
 
+  /** A paddle slapping the water and the axle's wooden knock. */
+  knock(intensity) {
+    if (!this._limit('knock', 90)) return;
+    this._noiseHit(650 + Math.random() * 200, 5, 0.05, 0.05 * intensity, { wet: 0.35, pan: (Math.random() - 0.5) * 0.6 });
+    this._noiseHit(2200, 1.5, 0.06, 0.03 * intensity, { wet: 0.2 });
+  }
+
   click() {
     this._noiseHit(2200, 5, 0.03, 0.06, { wet: 0.05 });
   }

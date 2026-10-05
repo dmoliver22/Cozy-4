@@ -337,7 +337,7 @@ export class Village {
         this._steer(p, dx / d, dz / d, dt, 0.9);
       }
       this.water.sample(p.x, p.z, ws);
-      p.y = ws.ground + Math.min(ws.depth, 0.5) * 0.0;
+      p.y = Math.max(this.ground(p.x, p.z), this.structures ? this.structures.heightAt(p.x, p.z) : -Infinity);
     }
     for (const b of this.buffalo) {
       b.bob += dt * 2.5;
@@ -391,7 +391,7 @@ export class Village {
       const c = this.cell(nx, nz);
       if (c < 0) continue;
       const dh = Math.abs(this.ground(nx, nz) - h0);
-      let s = Math.cos(ang) * 2 - dh * 2.2 - Math.min(this.water.d[c], 1) * 3;
+      let s = Math.cos(ang) * 2 - dh * 2.2 - (t.path[c] ? 0 : Math.min(this.water.d[c], 1) * 3);
       if (t.path[c]) s += 0.8;
       if (dh > 1.3) s -= 6;
       if (s > bestS) {
@@ -402,7 +402,7 @@ export class Village {
     }
     const c = this.cell(a.x, a.z);
     const onPath = c >= 0 && t.path[c];
-    const wade = c >= 0 ? Math.min(this.water.d[c], 0.5) : 0;
+    const wade = c >= 0 && !t.path[c] ? Math.min(this.water.d[c], 0.5) : 0;
     const v = speed * (onPath ? 1.7 : 1) * (1 - wade);
     a.heading = Math.atan2(bestX, bestZ);
     a.x += bestX * v * dt;

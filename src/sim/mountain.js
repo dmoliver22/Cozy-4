@@ -220,13 +220,13 @@ export function generateMountain(seed = 7) {
   // the stream: follow the natural fall line from the pool's east outlet first,
   // so the old terraces can be laid out safely to the west of it
   const outlet = { x: poolC.x + along.x * (poolLen + 0.4), z: poolC.z + along.z * (poolLen + 0.4) };
-  const sill = P + 0.2;
+  const sill = P + 0.25;
   const gullyStart = { x: outlet.x + along.x * 2.6 + down.x * 1.0, z: outlet.z + along.z * 2.6 + down.z * 1.0 };
   const gully = fallLine(terrain, gullyStart.x, gullyStart.z, {
-    dirX: down.x * 0.5 + along.x * 0.85,
-    dirZ: down.z * 0.5 + along.z * 0.85,
+    dirX: down.x * 0.35 + along.x * 0.95,
+    dirZ: down.z * 0.35 + along.z * 0.95,
     stopBelow: 2.6,
-    bias: (k) => (k < 10 ? { x: along.x * 0.6, z: along.z * 0.6 } : null),
+    bias: (k) => (k < 16 ? { x: along.x * 0.9, z: along.z * 0.9 } : null),
   });
   const gullyPolar = gully.map((p) => ({
     r: Math.hypot(p.x - SUMMIT.x, p.z - SUMMIT.z),
@@ -240,11 +240,11 @@ export function generateMountain(seed = 7) {
 
   const R = 2.4;
   const thSpan = [
-    [thPool - 0.5, thPool + 0.1],
-    [thPool - 0.46, thPool + 0.14],
-    [thPool - 0.5, thPool + 0.12],
-    [thPool - 0.42, thPool + 0.16],
-    [thPool - 0.36, thPool + 0.1],
+    [thPool - 0.5, thPool + 0.03],
+    [thPool - 0.46, thPool + 0.07],
+    [thPool - 0.5, thPool + 0.07],
+    [thPool - 0.42, thPool + 0.1],
+    [thPool - 0.36, thPool + 0.06],
   ];
   const ancient = [];
   let level = P - 3.4;
@@ -261,7 +261,7 @@ export function generateMountain(seed = 7) {
     for (let th = a; th <= b + 1e-6; th += 0.01) {
       const r = contourRadius(nat, th, level, rPool - 6);
       if (r === null) continue;
-      if (th > eastLimit(r) - (R + 4) / r) continue;
+      if (th > eastLimit(r) - (R + 6) / r) continue;
       const p = polar(r, th);
       if (!clearOfPool(p)) continue;
       pts.push(p);
@@ -294,16 +294,16 @@ export function generateMountain(seed = 7) {
       const c = i + j * N;
       if (terrain.terrace[c]) continue;
       if (e <= 1) {
-        const floor = P + e * e * 0.2;
+        const floor = P + e * e * 0.06;
         terrain.setTarget(c, floor);
         terrain.channel[c] = 1; // open water: terraces never bund against it
         poolCells.push(c);
       } else if (e <= 1.9) {
         // a stone rim all the way round: a berm on the downhill side, a cut
         // face on the uphill side, never lower than the retaining crest
-        const crest = P + 1.45 - Math.max(0, e - 1.3) * 1.5;
+        const crest = P + 1.85 - Math.max(0, e - 1.35) * 1.4;
         let target = Math.max(terrain.futureGround(c), crest);
-        if (b < -0.4 * poolW) target = Math.min(target, Math.max(crest, P + 1.5 + (e - 1) * 3));
+        if (b < -0.4 * poolW) target = Math.min(target, Math.max(crest, P + 1.9 + (e - 1) * 3));
         if (Math.abs(target - terrain.futureGround(c)) > 1e-3) terrain.setTarget(c, target);
         terrain.wall[c] = 1;
       }
@@ -313,7 +313,7 @@ export function generateMountain(seed = 7) {
 
   // outlet notch at the east end with its sill a touch above the floor
   {
-    const s = terrain.beginStroke('channel', outlet.x, outlet.z, { depth: 0, width: 1.8, lined: true });
+    const s = terrain.beginStroke('channel', outlet.x, outlet.z, { depth: 0, width: 2.3, lined: true });
     s.bed = sill;
     terrain.strokeTo(s, outlet.x, outlet.z);
     terrain.strokeTo(s, gullyStart.x, gullyStart.z);
@@ -321,10 +321,55 @@ export function generateMountain(seed = 7) {
     terrain.settle();
   }
   {
-    const s = terrain.beginStroke('channel', gully[0].x, gully[0].z, { depth: 0.9, width: 1.9, lined: false });
+    const s = terrain.beginStroke('channel', gully[0].x, gully[0].z, { depth: 1.25, width: 2.2, lined: false });
     s.bed = sill - 0.2;
     for (const p of gully) terrain.strokeTo(s, p.x, p.z);
     terrain.endStroke();
+    terrain.settle();
+  }
+
+  // a stone levee on the terrace side of the stream's first stretch, so the
+  // outflow can't seep sideways into the old terraces
+  {
+    const line = [outlet, gullyStart, ...gully.slice(0, 16)];
+    for (let k = 0; k < line.length - 1; k++) {
+      const p = line[k];
+      const q = line[k + 1];
+      let tx = q.x - p.x;
+      let tz = q.z - p.z;
+      const tl = Math.hypot(tx, tz) || 1;
+      tx /= tl;
+      tz /= tl;
+      let nx = -tz;
+      let nz = tx;
+      if (nx * down.x + nz * down.z < 0) {
+        nx = -nx;
+        nz = -nz;
+      }
+      const bed = terrain.sampleGround(p.x, p.z);
+      for (let s = 1.9; s <= 3.4; s += 0.5) {
+        const lx = p.x + nx * s;
+        const lz = p.z + nz * s;
+        const gi = Math.round((lx + HALF) / DX);
+        const gj = Math.round((lz + HALF) / DX);
+        for (let dj = -1; dj <= 1; dj++) {
+          for (let di = -1; di <= 1; di++) {
+            const i = gi + di;
+            const j = gj + dj;
+            if (i < 1 || j < 1 || i > N - 2 || j > N - 2) continue;
+            const c = i + j * N;
+            if (terrain.terrace[c] || terrain.channel[c]) continue;
+            const d = Math.hypot(i * DX - HALF - lx, j * DX - HALF - lz);
+            if (d > 1.0) continue;
+            const target = bed + 1.4 - (s - 1.9) * 0.25;
+            if (target > terrain.futureGround(c)) {
+              terrain.setTarget(c, target);
+              terrain.wall[c] = 1;
+            }
+          }
+        }
+      }
+    }
     terrain.settle();
   }
 
@@ -389,12 +434,8 @@ export function generateMountain(seed = 7) {
     const d = filled[c] - terrain.H[c];
     if (d > 0.04) water0[c] = d;
   }
-  // old terraces hold a little stale rainwater — not enough to spill
-  for (const a of ancient) {
-    for (let c = 0; c < terrain.n; c++) {
-      if (terrace[c] === a.tid) water0[c] = Math.max(0, a.level + BUND_H * 0.22 - terrain.H[c]);
-    }
-  }
+  // the old terraces start dry: warm clay beds waiting for water
+  for (let c = 0; c < terrain.n; c++) if (terrace[c]) water0[c] = 0;
 
   // ------------------------------------------------ trees
   const trees = [];
@@ -443,7 +484,7 @@ export function generateMountain(seed = 7) {
   }
 
   const springs = [
-    { x: poolC.x - along.x * 2.2, z: poolC.z - along.z * 2.2, rate: 5.5, name: 'Morning Spring' },
+    { x: poolC.x - along.x * 0.6, z: poolC.z - along.z * 0.6, rate: 7, name: 'Morning Spring' },
     { x: springB.x, z: springB.z, rate: 2.2, name: 'Mossy Spring' },
   ];
 

@@ -83,14 +83,15 @@ export class Post {
     this.renderer = renderer;
     const size = renderer.getSize(new THREE.Vector2());
     const pr = renderer.getPixelRatio();
+    const low = quality !== 'high';
     const rt = new THREE.WebGLRenderTarget(size.x * pr, size.y * pr, {
       type: THREE.HalfFloatType,
-      samples: quality === 'low' ? 0 : 4,
+      samples: low ? 0 : 4,
     });
     this.composer = new EffectComposer(renderer, rt);
     this.composer.addPass(new RenderPass(scene, camera));
     this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), 0.32, 0.55, 0.92);
-    this.bloom.enabled = quality !== 'low';
+    this.bloom.enabled = !low;
     this.composer.addPass(this.bloom);
     this.tiltH = new ShaderPass(TiltShift);
     this.tiltV = new ShaderPass(TiltShift);

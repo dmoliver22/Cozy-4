@@ -137,7 +137,8 @@ export class TerrainView {
           vec3 grass = mix(uGrassDry, uGrassLush, smoothstep(0.1, 0.85, green + (mott - 0.5) * 0.35));
           grass = mix(grass, uForest, smoothstep(0.75, 1.0, green) * 0.55);
           grass *= 0.88 + 0.24 * mott;
-          vec3 col = mix(uSoil * (0.9 + 0.2 * n2), grass, smoothstep(0.08, 0.45, green + n3 * 0.1));
+          vec3 bare = mix(mix(uSoil, uGrassDry, 0.35), uStone, smoothstep(30.0, 42.0, wp.y) * 0.65);
+          vec3 col = mix(bare * (0.9 + 0.2 * n2), grass, smoothstep(0.08, 0.45, green + n3 * 0.1));
 
           // terrace beds: mud when wet, warm clay when dry, a little richer with silt
           vec3 bed = mix(uClay * (0.92 + 0.12 * n3), uMud, smoothstep(0.25, 0.9, moist));

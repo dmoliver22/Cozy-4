@@ -34,7 +34,7 @@ export class WaterSim {
     this.p = {
       g: 9.81,
       dt: 0.02,
-      friction: 0.24, // bed friction coefficient (stronger for thin films)
+      friction: 0.8, // bed friction (falls off with depth^1.5, Manning-like)
       evap: 0.0012,
       infil: 0.035, // infiltration rate into dry soil (depth/s)
       soilCap: 0.45, // water depth that saturates the soil column
@@ -45,7 +45,7 @@ export class WaterSim {
       ks: 0.2, // dissolving rate
       kd: 0.9, // deposition rate
       erosion: true,
-      maxSpeed: 9,
+      maxSpeed: 7,
       ...params,
     };
     this.steps = 0;
@@ -100,7 +100,8 @@ export class WaterSim {
           continue;
         }
         const hc = H[c] + dc;
-        const damp = 1 / (1 + fr / (dc + 0.015));
+        const dd = dc + 0.02;
+        const damp = 1 / (1 + fr / (dd * Math.sqrt(dd)));
         let l = fL[c] * damp + coef * (i > 0 ? hc - H[c - 1] - d[c - 1] : dc);
         let r = fR[c] * damp + coef * (i < N - 1 ? hc - H[c + 1] - d[c + 1] : dc);
         let t = fT[c] * damp + coef * (j > 0 ? hc - H[c - N] - d[c - N] : dc);

@@ -61,6 +61,7 @@ export async function saveGame(game) {
     path: toB64(s.path),
     channel: toB64(s.channel),
     levels: toB64(s.levels),
+    sdf: toB64(s.sdf),
     water: toB64(w.d),
     moist: toB64(w.moist),
     fert: toB64(w.fert),
@@ -71,6 +72,7 @@ export async function saveGame(game) {
     goals: game.goals.serialize(),
     flags: game.ui?.flags ?? {},
     firstCascade: game.firstCascade,
+    bridges: game.structures.bridges.map((b) => [b.A.x, b.A.z, b.B.x, b.B.z].map((v) => +v.toFixed(2))),
   };
   const json = JSON.stringify(data);
   const packed = await gzip(json);
@@ -96,6 +98,7 @@ export async function loadGame(game) {
   t.path.set(fromB64(d.path, Uint8Array));
   t.channel.set(fromB64(d.channel, Uint8Array));
   t.levels.set(fromB64(d.levels, Float32Array));
+  if (d.sdf) t.sdf.set(fromB64(d.sdf, Float32Array));
   t.recount();
   t.refreshAll();
   w.d.set(fromB64(d.water, Float32Array));
@@ -119,5 +122,6 @@ export async function loadGame(game) {
   game.ui?.setHold(game.sky.hold);
   if (game.ui && d.flags) Object.assign(game.ui.flags, d.flags);
   game.firstCascade = !!d.firstCascade;
+  for (const [ax, az, bx, bz] of d.bridges || []) game.structures.buildBridge({ x: ax, z: az }, { x: bx, z: bz });
   return true;
 }

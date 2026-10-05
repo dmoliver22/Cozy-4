@@ -19,8 +19,9 @@ import { Village } from './village.js';
 import { Trees, Birds } from './nature.js';
 import { Goals, wateredTerraces, hamletsJoined } from './goals.js';
 import { Tools } from './tools.js';
+import { Structures } from './structures.js';
 
-export const TIME_SCALE = 3; // the water runs a little faster than life
+export const TIME_SCALE = 3.5; // the water runs a little faster than life
 
 const PETAL_COLORS = ['#f6b8c8', '#fbe3e8', '#ffffff', '#f7d679', '#f2a48a'].map((c) => new THREE.Color(c));
 const LEAF_COLORS = ['#7aa557', '#9bbd5c', '#c9b458', '#6f9a4e'].map((c) => new THREE.Color(c));
@@ -58,6 +59,9 @@ export class Game {
     this.birds = new Birds(scene);
     this.goals = new Goals();
     this.tools = new Tools(this);
+    this.structures = new Structures(scene, this);
+    this.physics.extraForces = () => this.structures.applyForces();
+    this.village.structures = this.structures;
 
     // the wind-spring field, uploaded for vertex shaders
     this.swayData = new Uint16Array(this.wind.G * this.wind.G * 4);
@@ -73,6 +77,7 @@ export class Game {
       clod: new THREE.InstancedMesh(clodGeometry(), bodyMat('clod'), 90),
       seed: new THREE.InstancedMesh(seedGeometry(), bodyMat('seed'), 220),
       petal: new THREE.InstancedMesh(petalGeometry(), bodyMat('petal'), 140),
+      plank: new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), patchMaterial(new THREE.MeshStandardMaterial({ color: new THREE.Color('#9a7752'), roughness: 0.9 }), { key: 'plank' }), 400),
     };
     for (const mesh of Object.values(this.bodyMeshes)) {
       mesh.count = 0;
@@ -407,6 +412,7 @@ export class Game {
     this.crops.update(dt);
     this.village.update(dt, { time: this.time, night: shared.uNight.value, hour: this.sky.hour });
     this.trees.update();
+    this.structures.update(dt);
     this.birds.update(dt, (x, z) => this.groundAt(x, z), this.wind.vec);
 
     this._fallsAndSpray(dt);
@@ -623,15 +629,19 @@ export class Game {
     const q = new THREE.Quaternion();
     const s = new THREE.Vector3();
     const p = new THREE.Vector3();
-    for (const kind of ['clod', 'seed', 'petal']) {
+    for (const kind of ['clod', 'seed', 'petal', 'plank']) {
       const mesh = this.bodyMeshes[kind];
       let k = 0;
       this.physics.forEach(kind, (pos, quat, scale, e) => {
         if (k >= mesh.instanceMatrix.count) return;
-        const sc = e.r / (kind === 'clod' ? 0.28 : kind === 'seed' ? 0.09 : 0.16) * scale;
         p.set(pos.x, pos.y, pos.z);
         q.set(quat.x, quat.y, quat.z, quat.w);
-        s.set(sc, sc, sc);
+        if (kind === 'plank') {
+          s.copy(e.data.size).multiplyScalar(scale);
+        } else {
+          const sc = (e.r / (kind === 'clod' ? 0.28 : kind === 'seed' ? 0.09 : 0.16)) * scale;
+          s.set(sc, sc, sc);
+        }
         m.compose(p, q, s);
         mesh.setMatrixAt(k, m);
         if (kind === 'petal' && e.data?.color) mesh.setColorAt(k, e.data.color);

@@ -23,7 +23,7 @@ export class Physics {
     this.waterTimeScale = timeScale;
     this.world = new RAPIER.World({ x: 0, y: -GRAVITY, z: 0 });
     this.world.timestep = 1 / 60;
-    this.world.numSolverIterations = 4;
+    this.world.numSolverIterations = 6;
     this.hf = new Float32Array(N * N);
     this.ground = null;
     this.entries = [];
@@ -95,7 +95,9 @@ export class Physics {
       .setCcdEnabled(!!opts.ccd);
     const body = this.world.createRigidBody(bd);
     let cd;
-    if (kind === 'petal' || kind === 'leaf') {
+    if (opts.shape) {
+      cd = opts.shape;
+    } else if (kind === 'petal' || kind === 'leaf') {
       cd = RAPIER.ColliderDesc.cuboid(r, r * 0.12, r);
     } else if (kind === 'clod' || kind === 'stone') {
       cd = RAPIER.ColliderDesc.roundCuboid(r * 0.62, r * 0.55, r * 0.62, r * 0.3);
@@ -173,6 +175,7 @@ export class Physics {
     let steps = 0;
     while (this.accum >= h && steps < 3) {
       this._applyForces(h);
+      if (this.extraForces) this.extraForces(h);
       this.world.step();
       this._post(h);
       this.accum -= h;

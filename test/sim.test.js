@@ -35,7 +35,7 @@ test('pipe model conserves water in a closed bowl', () => {
   // a column of water off-centre sloshes around
   for (let j = 70; j < 80; j++) for (let i = 50; i < 60; i++) w.d[i + j * N] = 2;
   const v0 = w.totalVolume();
-  for (let k = 0; k < 2000; k++) w.step();
+  for (let k = 0; k < 6000; k++) w.step();
   const v1 = w.totalVolume();
   assert.ok(Math.abs(v1 - v0) / v0 < 1e-4, `volume drifted ${v0} -> ${v1}`);
   assert.equal(w.drained, 0);

@@ -29,8 +29,8 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 const tm = new URLSearchParams(location.search).get('tm');
-renderer.toneMapping = tm === 'agx' ? THREE.AgXToneMapping : tm === 'neutral' ? THREE.NeutralToneMapping : THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = tm === 'agx' ? 1.1 : tm === 'neutral' ? 1.0 : 0.95;
+renderer.toneMapping = tm === 'agx' ? THREE.AgXToneMapping : tm === 'aces' ? THREE.ACESFilmicToneMapping : THREE.NeutralToneMapping;
+renderer.toneMappingExposure = tm === 'agx' ? 1.1 : tm === 'aces' ? 0.95 : 1.04;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
@@ -59,10 +59,9 @@ fitCamera();
 
 async function boot() {
   await initRapier();
-  game = new Game(scene, { seed: 7, meshDetail: quality === 'low' ? 1 : 2 });
-  if (quality === 'low') {
-    game.sky.sun.shadow.mapSize.set(1024, 1024);
-  }
+  game = new Game(scene, { seed: 7, meshDetail: quality === 'potato' ? 1 : 2 });
+  if (quality !== 'high') game.sky.sun.shadow.mapSize.set(1024, 1024);
+  if (quality === 'potato') renderer.shadowMap.enabled = false;
   post = new Post(renderer, scene, camera, quality);
   ui = new UI(root, game, hooks);
   ui.ready(hasSave());
@@ -356,4 +355,4 @@ boot().catch((err) => {
 });
 
 // handy for debugging and automated checks
-window.__terraces = () => ({ game, cam, camera, renderer });
+window.__terraces = () => ({ game, cam, camera, renderer, save: () => saveGame(game) });

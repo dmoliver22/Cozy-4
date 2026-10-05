@@ -85,6 +85,11 @@ export class Tools {
       return;
     }
     if (!this.stroke) return;
+    if (this.tool === 'path') {
+      const pts = (this.stroke.pts = this.stroke.pts || []);
+      const last = pts[pts.length - 1];
+      if (!last || Math.hypot(last.x - this.hit.x, last.z - this.hit.z) > 0.3) pts.push({ x: this.hit.x, z: this.hit.z });
+    }
     const res = g.terrain.strokeTo(this.stroke, this.hit.x, this.hit.z);
     if (res.cut > 0 || res.fill > 0) g.onSculpt(this.tool, this.hit, res, this.stroke);
   }
@@ -104,6 +109,7 @@ export class Tools {
     const gy = 18;
     const ty = g.groundAt(tx, tz);
     const vy = (ty - sy + 0.5 * gy * T * T) / T;
+    if (this.sowIds) this.sowIds.thrown = (this.sowIds.thrown || 0) + 1;
     const e = g.physics.add('seed', sx, sy, sz, {
       r: this.seed === TEA ? 0.11 : 0.085,
       density: this.seed === FLOWER ? 0.8 : 1.25,
@@ -127,9 +133,11 @@ export class Tools {
     this.down = false;
     const g = this.g;
     if (this.tool === 'plant') {
-      if (this.sowIds) this.undoStack.push(this.sowIds);
+      if (this.sowIds && this.sowIds.thrown) {
+        this.undoStack.push(this.sowIds);
+        this.redoStack.length = 0;
+      }
       this.sowIds = null;
-      this.redoStack.length = 0;
       if (this.onChange) this.onChange();
       return;
     }
@@ -142,6 +150,7 @@ export class Tools {
       this.redoStack.length = 0;
     }
     if (this.onStroke) this.onStroke('end', this.tool, this.stroke);
+    if (this.tool === 'path' && this.stroke.pts) g.structures?.pathStroke(this.stroke.pts);
     this.stroke = null;
     this.before = null;
     if (this.onChange) this.onChange();
@@ -150,9 +159,12 @@ export class Tools {
   /** Abort a stroke that turned into a two-finger gesture. */
   cancel() {
     if (!this.down) return;
+    const before = this.undoStack.length;
     this.end();
-    this.undo();
-    this.redoStack.pop();
+    if (this.undoStack.length > before) {
+      this.undo();
+      this.redoStack.pop();
+    }
   }
 
   undo() {

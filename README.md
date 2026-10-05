@@ -15,7 +15,7 @@ npm run build      # static build in dist/ (relative paths — zip it for itch.i
 npm test           # simulation tests (node)
 ```
 
-You need a browser with WebGL 2 (any recent Chrome, Edge, Firefox or Safari). Add `?quality=low` to the URL for older laptops and phones (it's on by default for touch devices). `?tm=agx` or `?tm=neutral` switch the tone mapping.
+You need a browser with WebGL 2 (any recent Chrome, Edge, Firefox or Safari). Add `?quality=low` to the URL for older laptops and phones (it's on by default for touch devices). `?tm=aces` or `?tm=agx` switch the tone mapping.
 
 ### Controls
 
