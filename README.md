@@ -15,7 +15,7 @@ npm run build      # static build in dist/ (relative paths — zip it for itch.i
 npm test           # simulation tests (node)
 ```
 
-You need a browser with WebGL 2 (any recent Chrome, Edge, Firefox or Safari). Add `?quality=low` to the URL for older laptops and phones (it's on by default for touch devices). `?tm=aces` or `?tm=agx` switch the tone mapping.
+You need a browser with WebGL 2 (any recent Chrome, Edge, Firefox or Safari). `?quality=low` turns off bloom and MSAA and halves the shadow map. It's the default on touch devices. `?quality=potato` also drops shadows and the fine terrain mesh. `?tm=aces` or `?tm=agx` switch the tone mapping.
 
 ### Controls
 
@@ -34,7 +34,7 @@ You need a browser with WebGL 2 (any recent Chrome, Edge, Firefox or Safari). Ad
 - **Terrace** cuts a level shelf at the height where you start the stroke. Drag along the slope and it follows you around the mountain. Start on an existing terrace (or close to its level) to extend it. Terrace rims grow an earthen bund, so a paddy fills to its lowest point and spills from there.
 - **Channel** digs a groove whose bed only ever descends from where you started. Drag uphill and it cuts deeper instead, so water always runs the way you drew it.
 - **Sow** throws seeds from the pouch. Rice needs standing water, tea likes damp slopes that drain (the seepage just below a paddy), and flowers grow almost anywhere.
-- **Path** lays a footpath. Villagers walk faster on paths, and joining two hamlets with one is a goal.
+- **Path** lays a footpath. Villagers walk faster on paths, and joining two hamlets with one is a goal. A path drawn across a stream becomes a rope bridge.
 - **Soften** eases the land back toward its natural shape.
 
 ### The mountain's goals
@@ -51,16 +51,21 @@ Nearly everything on screen is simulated rather than animated.
 
 | System | What's simulated | Where |
 |---|---|---|
-| **Water** | Shallow water on the heightfield using the *virtual pipes* model (O'Brien & Hodgins; Mei et al.). Flux is driven by hydrostatic head and gravity and slowed by depth-dependent bed friction. The result is momentum, sloshing, waves, pooling to a flat level, and spilling at the lowest point of a bund. | `src/sim/water.js` |
+| **Water** | Shallow water on the heightfield using the *virtual pipes* model (O'Brien & Hodgins; Mei et al.). Flux is driven by hydrostatic head and gravity and slowed by Manning-like bed friction that falls off with depth^1.5, so thin sheets crawl and deep pools move freely. The result is momentum, sloshing, waves, pooling to a flat level, and spilling at the lowest point of a bund. | `src/sim/water.js` |
 | **Soil water** | Infiltration into dry soil (paddies have a puddled hardpan), Darcy-like downhill seepage and diffusion, evapotranspiration, and evaporation from open water. | `src/sim/water.js` |
 | **Erosion** | Suspended-sediment capacity from flow speed and slope: erosion, semi-Lagrangian transport, deposition. Silt that settles in paddies becomes fertility instead of filling them. | `src/sim/water.js` |
 | **Granular soil** | Angle-of-repose relaxation (thermal erosion) for loose soil. Terraces, stone risers and channels are retained. | `src/sim/terrain.js` |
 | **Rigid bodies** | [Rapier](https://rapier.rs) 3D. The sculpted heightfield is mirrored into a Rapier heightfield collider whenever the land changes. Cut soil breaks off as clods that tumble downhill and dissolve where they settle (adding soil, or silt in a paddy). Seeds are thrown from the pouch, arc, bounce, roll off slopes that are too steep and take root where they come to rest. Flower petals drop and float. | `src/physics/physics.js` |
+| **Joints** | Rope bridges hang their planks on Rapier spherical joints, so the deck settles into a catenary, sways in gusts, and drops into the stream if you dig out a bank. Water wheels are rigid bodies on revolute joints, turned by drag from the simulated current on each submerged paddle. | `src/game/structures.js` |
 | **Water ↔ bodies** | Archimedes buoyancy from submerged volume, plus drag toward the local current, so petals ride the flow over bunds and down waterfalls. Impacts push water outward, and the pipe model turns that into ripples. | `src/physics/physics.js` |
 | **Wind** | A veering breeze with travelling gust fronts drives a field of damped spring oscillators, so rice and trees sway as waves roll across the paddies. | `src/sim/wind.js` |
 | **Particles** | Waterfall spray (ballistic plus drag), chimney smoke (buoyant hot air that cools), dust, rain, fluttering petals and fireflies. | `src/render/particles.js` |
 | **Life** | Crops grow by how well the local water suits them. Homes appear on a spring-damper with squash and stretch, villagers steer over the heightfield preferring paths and avoiding deep water, buffalo wade in paddies, and birds flock as boids. | `src/game/*.js` |
 | **Sound** | Synthesised at runtime. Karplus–Strong plucked strings, modal-synthesis bells and gong, water "plips" at the Minnaert resonance of the trapped bubble, and running water, wind and rain from noise driven by the simulation's flow energy. | `src/audio/audio.js` |
+
+## Rendering notes
+
+The simulation runs on a 160×160 grid with 1-unit cells. The terrain is drawn at twice that resolution. Every terrace stroke leaves a signed-distance field built from the brush discs, so terrace edges and their bunds are rebuilt as the smooth curves they were cut as, not as grid steps. Water is drawn from the simulation's depth and velocity every frame, and its shoreline is resolved per pixel against the fine terrain.
 
 ## Code map
 
@@ -69,7 +74,7 @@ src/
   sim/        pure JS, unit-tested in node: terrain, water, wind, ecology, mountain generator
   physics/    Rapier world + water coupling
   render/     three.js views: terrain, water, sky/day cycle, mist, particles, post (tilt-shift, bloom, grade)
-  game/       crops, village, nature (trees, birds), goals, tools + undo, camera, save, Game orchestrator
+  game/       crops, village, structures (bridges, wheels), nature (trees, birds), goals, tools + undo, camera, save, Game orchestrator
   ui/         tray, goal card, hints, title screen
   audio/      procedural audio engine
 test/         simulation tests (mass conservation, paddy filling, channels, undo, the first-cut cascade)

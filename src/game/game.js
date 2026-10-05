@@ -419,6 +419,9 @@ export class Game {
     this._ambient(dt);
 
     const env = { windVec: this.wind.at(0, 0), t: this.time, ground: (x, z) => this.surfaceAt(x, z) };
+    // particles take the light of the hour (white smoke shouldn't glow at night)
+    const sunUp = THREE.MathUtils.clamp((this.sky.elevation + 4) / 14, 0, 1);
+    this.particles.uniforms.uLight.value = (0.32 + 0.68 * sunUp) * (1 - this.weather.rain * 0.25);
     this.particles.update(dt, env);
     this.glows.update(dt, env);
 
@@ -503,12 +506,15 @@ export class Game {
     if (w.rain < 0.002) w.rain = 0;
     this.water.rain = w.rain * 0.0022;
     if (w.rain > 0) {
-      // grey the light while it rains
-      const grey = new THREE.Color('#b9c2c8');
-      const k = w.rain * 0.55;
-      shared.uHorizon.value.lerp(grey, k);
-      shared.uZenith.value.lerp(new THREE.Color('#9eaab4'), k);
-      shared.uFogColor.value.lerp(grey, k * 0.8);
+      // overcast: wash the colour out of the light without brightening the night
+      const k = w.rain * 0.6;
+      const grey = (c, dim) => {
+        const l = c.r * 0.2126 + c.g * 0.7152 + c.b * 0.0722;
+        c.lerp(new THREE.Color(l * dim, l * dim * 1.02, l * dim * 1.06), k);
+      };
+      grey(shared.uHorizon.value, 0.95);
+      grey(shared.uZenith.value, 0.9);
+      grey(shared.uFogColor.value, 0.95);
       this.sky.sun.intensity *= 1 - w.rain * 0.65;
       // raindrops around the view
       const n = Math.floor(w.rain * 90 * dt * 60);
@@ -601,7 +607,7 @@ export class Game {
       const x = Math.cos(a) * r;
       const z = Math.sin(a) * r;
       const y = Math.max(this.groundAt(x, z), 2) + 2 + Math.random() * 7;
-      this.particles.spawn(P_MIST, x, y, z, this.wind.vec.x * 0.8, 0, this.wind.vec.z * 0.8, 25 + Math.random() * 15, 12 + Math.random() * 14, 0.97, 0.98, 1.0, 0.07, 0.25);
+      this.particles.spawn(P_MIST, x, y, z, this.wind.vec.x * 0.8, 0, this.wind.vec.z * 0.8, 25 + Math.random() * 15, 18 + Math.random() * 16, 0.97, 0.98, 1.0, 0.045, 0.35);
     }
   }
 

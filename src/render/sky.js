@@ -8,10 +8,10 @@ const C = (hex) => new THREE.Color(hex);
 // key frames by sun elevation (degrees)
 const KEYS = [
   { e: -14, zen: C('#1d2b4c'), hor: C('#3e4c6e'), fog: C('#34415e'), sun: C('#7f8fb8'), sunI: 0.0, amb: 0.32 },
-  { e: -4, zen: C('#5b6f9a'), hor: C('#d79a8c'), fog: C('#9aa3b8'), sun: C('#ff9f7a'), sunI: 0.15, amb: 0.45 },
-  { e: 3, zen: C('#86afd0'), hor: C('#f4b88e'), fog: C('#ead2c2'), sun: C('#ffb27a'), sunI: 1.7, amb: 0.62 },
-  { e: 10, zen: C('#8fc0dc'), hor: C('#f3c9a8'), fog: C('#ecdfd3'), sun: C('#ffc996'), sunI: 2.5, amb: 0.75 },
-  { e: 24, zen: C('#86bddc'), hor: C('#dce9ee'), fog: C('#e6eef0'), sun: C('#fff0dc'), sunI: 2.9, amb: 0.85 },
+  { e: -4, zen: C('#5b6f9a'), hor: C('#d79a8c'), fog: C('#9aa3b8'), sun: C('#ff9f7a'), sunI: 0.15, amb: 0.42 },
+  { e: 3, zen: C('#86afd0'), hor: C('#f4b88e'), fog: C('#ead2c2'), sun: C('#ffaa6c'), sunI: 2.2, amb: 0.52 },
+  { e: 10, zen: C('#8fc0dc'), hor: C('#f3c9a8'), fog: C('#ecdfd3'), sun: C('#ffc38a'), sunI: 2.8, amb: 0.62 },
+  { e: 24, zen: C('#86bddc'), hor: C('#dce9ee'), fog: C('#e6eef0'), sun: C('#ffeedd'), sunI: 3.0, amb: 0.8 },
   { e: 50, zen: C('#79b3d8'), hor: C('#d6e8f0'), fog: C('#e6eef0'), sun: C('#fffaf0'), sunI: 3.1, amb: 0.9 },
 ];
 

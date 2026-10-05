@@ -690,7 +690,9 @@ button:focus-visible {
   }
   .hint {
     bottom: calc(132px + var(--safe-b));
-    font-size: 14px;
+    font-size: 13.5px;
+    padding: 9px 16px;
+    max-width: min(330px, calc(100vw - 32px));
   }
 }
 

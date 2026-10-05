@@ -46,6 +46,7 @@ export class Particles {
     geo.setDrawRange(0, 0);
     this.uniforms = {
       uScale: { value: 600 },
+      uLight: { value: 1 },
       uSunDir: shared.uSunDir,
       uSunColor: shared.uSunColor,
       uFogColor: shared.uFogColor,
@@ -75,6 +76,7 @@ export class Particles {
         uniform vec3 uSunDir;
         uniform vec3 uSunColor;
         uniform vec3 uFogColor;
+        uniform float uLight;
         varying vec4 vColor;
         varying vec3 vWorld;
         ${FOG_GLSL}
@@ -82,8 +84,8 @@ export class Particles {
           vec2 q = gl_PointCoord - 0.5;
           float r2 = dot(q, q);
           if (r2 > 0.25) discard;
-          float soft = smoothstep(0.25, 0.0, r2);
-          vec3 col = ${additive ? 'vColor.rgb' : 'applyFog(vColor.rgb, vWorld)'};
+          float soft = exp(-r2 * 13.0) * smoothstep(0.25, 0.16, r2);
+          vec3 col = ${additive ? 'vColor.rgb' : 'applyFog(vColor.rgb * uLight, vWorld)'};
           gl_FragColor = vec4(col, vColor.a * soft);
         }`,
     });

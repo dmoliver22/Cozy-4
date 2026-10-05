@@ -312,6 +312,7 @@ export class UI {
   firstCascade() {
     if (this.flags.cascade) return;
     this.flags.cascade = true;
+    this.flags.cascadeAt = this.g.time;
     this.g.cursor.clearHint(this.g.scene);
     setTimeout(() => this.hint('The old terraces wake. Open the seed pouch (Sow → Rice) and scatter seeds into the flooded paddies.', 9000), 2500);
   }
@@ -338,6 +339,15 @@ export class UI {
     if (!f.firstHome && g.village.count > 0) {
       f.firstHome = true;
       this.hint('A hamlet has begun. More terraces and fields will help it grow.', 7000);
+    }
+    if (!f.camTip && f.cascade && g.time - (f.cascadeAt || g.time) > 25) {
+      f.camTip = true;
+      const touch = matchMedia('(pointer: coarse)').matches;
+      this.hint(touch ? 'Two fingers turn the mountain; pinch to look closer.' : 'Right-drag to turn the mountain, scroll to look closer, Shift-drag to pan.', 6500);
+    }
+    if (!f.tier2Tip && g.goals.tier >= 1) {
+      f.tier2Tip = true;
+      setTimeout(() => this.hint('Footpaths that cross a stream become little rope bridges. Join two hamlets to finish the mountain.', 9000), 8000);
     }
   }
 

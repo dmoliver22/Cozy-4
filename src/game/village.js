@@ -73,11 +73,11 @@ export class Village {
     const c = this.cell(x, z);
     if (c < 0) return false;
     const t = this.terrain;
-    if (t.terrace[c] || t.channel[c]) return false;
+    if (t.terrace[c] || t.channel[c] || t.wall[c]) return false;
     if (t.roughness(c) > 1.1) return false;
-    for (const o of [0, -1, 1, -N, N]) {
+    for (const o of [0, -1, 1, -N, N, -N - 1, -N + 1, N - 1, N + 1]) {
       if (this.water.d[c + o] > 0.03) return false;
-      if (t.channel[c + o]) return false;
+      if (t.channel[c + o] || t.terrace[c + o]) return false;
     }
     for (const h of this.houses) if ((h.x - x) ** 2 + (h.z - z) ** 2 < 2.6 * 2.6) return false;
     return true;
@@ -90,7 +90,7 @@ export class Village {
 
   update(dt, ctx) {
     this.timer += dt;
-    if (this.timer > 1.6) {
+    if (this.timer > 3.2) {
       this.timer = 0;
       this._evict();
       if (this.houses.length < Math.min(MAX_HOUSES, this.capacity())) this._grow(ctx);
@@ -264,7 +264,7 @@ export class Village {
       h.s += h.sv * dt;
       h.smoke -= dt * cooking;
       if (h.smoke <= 0 && h.s > 0.9) {
-        h.smoke = 0.35 + Math.random() * 0.4;
+        h.smoke = 0.22 + Math.random() * 0.25;
         const sc = h.scale;
         this.particles.spawn(
           P_SMOKE,
@@ -274,13 +274,13 @@ export class Village {
           (Math.random() - 0.5) * 0.2,
           0.6 + Math.random() * 0.3,
           (Math.random() - 0.5) * 0.2,
-          5 + Math.random() * 3,
-          0.35,
-          night > 0.5 ? 0.55 : 0.86,
-          night > 0.5 ? 0.57 : 0.86,
-          night > 0.5 ? 0.62 : 0.88,
-          0.32,
-          0.45
+          6 + Math.random() * 3,
+          0.5,
+          0.86,
+          0.86,
+          0.88,
+          0.2,
+          0.9
         );
       }
     }
@@ -337,7 +337,13 @@ export class Village {
         this._steer(p, dx / d, dz / d, dt, 0.9);
       }
       this.water.sample(p.x, p.z, ws);
-      p.y = Math.max(this.ground(p.x, p.z), this.structures ? this.structures.heightAt(p.x, p.z) : -Infinity);
+      const deck = this.structures ? this.structures.heightAt(p.x, p.z) : -Infinity;
+      p.y = Math.max(this.ground(p.x, p.z), deck);
+      p.step = (p.step || 0) - dt;
+      if (ws.depth > 0.05 && deck === -Infinity && (p.state === 'walk' || p.state === 'return') && p.step <= 0) {
+        p.step = 0.4;
+        this.water.splash(p.x, p.z, 0.35);
+      }
     }
     for (const b of this.buffalo) {
       b.bob += dt * 2.5;
@@ -371,6 +377,12 @@ export class Village {
       }
       this.water.sample(b.x, b.z, ws);
       b.y = ws.ground - Math.min(ws.depth, 0.35) * 0.4;
+      // wading stirs the paddy: each step pushes a ring of real waves outward
+      b.step = (b.step || 0) - dt;
+      if (ws.depth > 0.05 && d >= 0.6 && b.step <= 0) {
+        b.step = 0.55;
+        this.water.splash(b.x + Math.sin(b.heading) * 0.5, b.z + Math.cos(b.heading) * 0.5, 0.9);
+      }
     }
   }
 

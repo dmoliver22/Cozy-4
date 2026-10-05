@@ -1,10 +1,16 @@
-// Water surface rendered straight from the simulation: every frame the depth
-// and velocity fields are uploaded as a float texture; the vertex shader lifts
-// a grid onto the water surface and the fragment shader reflects the sky,
-// glitters in the sun, foams over ledges and scrolls ripples along the flow.
+// Water surface rendered straight from the simulation. Every frame the depth
+// and velocity fields are uploaded as a float texture. The surface is drawn on
+// the same fine grid as the terrain: still water (paddies, ponds, the lake) is
+// a flat plane whose shoreline is resolved per pixel against the drawn land,
+// while thin sheets (water spilling over a ledge, running down a riser) hug
+// the terrain surface. The fragment shader reflects the sky, glitters in the
+// sun, foams over ledges and scrolls ripples along the flow.
 import * as THREE from 'three';
-import { N, DX, HALF } from '../sim/constants.js';
+import { N, HALF } from '../sim/constants.js';
 import { shared, SKY_GLSL, FOG_GLSL, NOISE_GLSL } from './shaders.js';
+
+const WET = 0.004;
+const INVALID = -10000;
 
 export class WaterView {
   constructor(scene, terrain, water, terrainView) {
@@ -12,39 +18,51 @@ export class WaterView {
     this.terrainView = terrainView;
     this.water = water;
     const n = N * N;
-    this.data = new Float32Array(n * 4);
+    this.data = new Float32Array(n * 4); // virtual surface, depth, u, v
     this.tex = new THREE.DataTexture(this.data, N, N, THREE.RGBAFormat, THREE.FloatType);
     this.tex.magFilter = THREE.NearestFilter;
     this.tex.minFilter = THREE.NearestFilter;
     this.tex.needsUpdate = true;
-    this.data2 = new Uint8Array(n * 4);
+    this.data2 = new Uint8Array(n * 4); // sediment, foam
     this.tex2 = new THREE.DataTexture(this.data2, N, N, THREE.RGBAFormat, THREE.UnsignedByteType);
     this.tex2.magFilter = THREE.NearestFilter;
     this.tex2.minFilter = THREE.NearestFilter;
     this.tex2.needsUpdate = true;
 
-    const pos = new Float32Array(n * 3);
-    for (let j = 0; j < N; j++) {
-      for (let i = 0; i < N; i++) {
-        const c = i + j * N;
-        pos[c * 3] = i;
-        pos[c * 3 + 2] = j;
+    const S = terrainView.S;
+    const NF = terrainView.NF;
+    const nf = NF * NF;
+    const pos = new Float32Array(nf * 3);
+    for (let j = 0; j < NF; j++) {
+      for (let i = 0; i < NF; i++) {
+        const v = i + j * NF;
+        pos[v * 3] = i;
+        pos[v * 3 + 2] = j;
       }
     }
-    const index = new Uint32Array((N - 1) * (N - 1) * 6);
+    const index = new Uint32Array((NF - 1) * (NF - 1) * 6);
     let k = 0;
-    for (let j = 0; j < N - 1; j++) {
-      for (let i = 0; i < N - 1; i++) {
-        const a = i + j * N;
+    for (let j = 0; j < NF - 1; j++) {
+      for (let i = 0; i < NF - 1; i++) {
+        const a = i + j * NF;
         const b = a + 1;
-        const c = a + N;
+        const c = a + NF;
         const d = c + 1;
         if ((i + j) % 2 === 0) {
-          index.set([a, c, b, b, c, d], k);
+          index[k++] = a;
+          index[k++] = c;
+          index[k++] = b;
+          index[k++] = b;
+          index[k++] = c;
+          index[k++] = d;
         } else {
-          index.set([a, c, d, a, d, b], k);
+          index[k++] = a;
+          index[k++] = c;
+          index[k++] = d;
+          index[k++] = a;
+          index[k++] = d;
+          index[k++] = b;
         }
-        k += 6;
       }
     }
     const geo = new THREE.BufferGeometry();
@@ -55,9 +73,11 @@ export class WaterView {
     this.uniforms = {
       uWater: { value: this.tex },
       uWater2: { value: this.tex2 },
+      uGround: { value: terrainView.groundTex },
       uN: { value: N },
-      uDX: { value: DX },
-      uHalf: { value: HALF },
+      uS: { value: S },
+      uNF: { value: NF },
+      uDXF: { value: terrainView.dxf },
       uTime: shared.uTime,
       uSunDir: shared.uSunDir,
       uSunColor: shared.uSunColor,
@@ -72,9 +92,6 @@ export class WaterView {
       uDeep: { value: new THREE.Color('#2e5868') },
       uMuddy: { value: new THREE.Color('#9a8460') },
       uRain: { value: 0 },
-      uGround: { value: terrainView.groundTex },
-      uNF: { value: terrainView.NF },
-      uDXF: { value: terrainView.dxf },
     };
 
     const mat = new THREE.ShaderMaterial({
@@ -85,69 +102,62 @@ export class WaterView {
       vertexShader: /* glsl */ `
         uniform sampler2D uWater;
         uniform sampler2D uWater2;
+        uniform sampler2D uGround;
         uniform float uN;
-        uniform float uDX;
-        uniform float uHalf;
-        varying float vSurf;
-        varying float vGround;
+        uniform float uS;
+        uniform float uNF;
+        uniform float uDXF;
         varying vec2 vVel;
         varying vec3 vWorld;
-        varying vec3 vNrm;
         varying float vFoam;
         varying float vSed;
-        const float WET = 0.004;
-        const ivec2 OFFS[8] = ivec2[8](ivec2(-1, -1), ivec2(0, -1), ivec2(1, -1), ivec2(-1, 0), ivec2(1, 0), ivec2(-1, 1), ivec2(0, 1), ivec2(1, 1));
-        vec4 cellAt(ivec2 c) {
-          return texelFetch(uWater, clamp(c, ivec2(0), ivec2(int(uN) - 1)), 0);
-        }
-        float surf(ivec2 c, float fallback) {
-          vec4 w = cellAt(c);
-          return w.g > WET ? w.r + w.g : fallback;
-        }
+        varying float vFilm;
         void main() {
-          ivec2 ij = ivec2(position.xz + 0.5);
-          vec4 w = cellAt(ij);
-          vec4 w2 = texelFetch(uWater2, ij, 0);
-          float H = w.r;
-          float d = w.g;
-          float s = H + d;
-          float y = H - 1.2;
-          vec2 vel = w.ba;
-          if (d > WET) {
-            y = s;
-          } else {
-            // dry vertex beside water: carry the flat water surface over it so the
-            // shoreline is cut by the real terrain contour, not by grid cells.
-            // Never over a drop (that would leave a ledge of water in the air).
-            float sum = 0.0;
-            float cnt = 0.0;
-            for (int k = 0; k < 8; k++) {
-              vec4 n = cellAt(ij + OFFS[k]);
-              if (n.g > WET) {
-                sum += n.r + n.g;
-                cnt += 1.0;
-              }
+          ivec2 fij = ivec2(position.xz + 0.5);
+          float G = texelFetch(uGround, fij, 0).r;
+          vec2 g = vec2(fij) / uS;
+          ivec2 c0 = min(ivec2(floor(g)), ivec2(int(uN) - 2));
+          vec2 f = g - vec2(c0);
+          vec4 a = texelFetch(uWater, c0, 0);
+          vec4 b = texelFetch(uWater, c0 + ivec2(1, 0), 0);
+          vec4 c = texelFetch(uWater, c0 + ivec2(0, 1), 0);
+          vec4 d = texelFetch(uWater, c0 + ivec2(1, 1), 0);
+          float wa = (1.0 - f.x) * (1.0 - f.y);
+          float wb = f.x * (1.0 - f.y);
+          float wc = (1.0 - f.x) * f.y;
+          float wd = f.x * f.y;
+          float depth = a.g * wa + b.g * wb + c.g * wc + d.g * wd;
+          float dmax = max(max(a.g, b.g), max(c.g, d.g));
+          vec2 vel = a.ba * wa + b.ba * wb + c.ba * wc + d.ba * wd;
+          // flat surface from the corners that carry (or border) water
+          float sw = 0.0;
+          float ss = 0.0;
+          if (a.r > -1000.0) { sw += wa; ss += wa * a.r; }
+          if (b.r > -1000.0) { sw += wb; ss += wb * b.r; }
+          if (c.r > -1000.0) { sw += wc; ss += wc * c.r; }
+          if (d.r > -1000.0) { sw += wd; ss += wd * d.r; }
+          float y = G - 1.0;
+          float film = 0.0;
+          if (sw > 0.001 && dmax > ${WET.toFixed(4)}) {
+            float S = ss / sw;
+            float pond = smoothstep(0.05, 0.18, dmax);
+            if (G > S - 0.5) {
+              // still water (or its shore): flat at the water level, unless it's only a sheet
+              y = mix(G + depth, S, pond);
+              film = 1.0 - pond;
+            } else {
+              // over a drop: only a thin sheet running down the face
+              y = depth > 0.003 ? G + depth : G - 1.0;
+              film = 1.0;
             }
-            if (cnt > 0.0) {
-              float S = sum / cnt;
-              if (H > S - 0.45) y = S;
-            }
-            s = y;
           }
-          float sl = surf(ij + ivec2(-1, 0), s);
-          float sr = surf(ij + ivec2(1, 0), s);
-          float st = surf(ij + ivec2(0, -1), s);
-          float sb = surf(ij + ivec2(0, 1), s);
-          vec3 nrm = normalize(vec3(sl - sr, 2.0 * uDX, st - sb));
-          float grad = length(vec2(sl - sr, st - sb)) / (2.0 * uDX);
-          float speed = length(vel);
-          vSurf = y;
-          vGround = H;
+          vec4 w2 = texelFetch(uWater2, c0 + ivec2(int(f.x + 0.5), int(f.y + 0.5)), 0);
           vVel = vel;
-          vNrm = nrm;
           vSed = w2.r;
-          vFoam = clamp(smoothstep(0.35, 1.4, grad) * smoothstep(WET, 0.03, d) + smoothstep(2.5, 6.0, speed) * 0.6 + w2.g * 0.8, 0.0, 1.0);
-          vec3 wp = vec3(position.x * uDX - uHalf, y, position.z * uDX - uHalf);
+          vFilm = film;
+          float speed = length(vel);
+          vFoam = clamp(smoothstep(2.6, 6.0, speed) * 0.55 + w2.g * 0.85, 0.0, 1.0);
+          vec3 wp = vec3(position.x * uDXF - ${HALF.toFixed(4)}, y, position.z * uDXF - ${HALF.toFixed(4)});
           vWorld = wp;
           gl_Position = projectionMatrix * viewMatrix * vec4(wp, 1.0);
         }`,
@@ -160,13 +170,11 @@ export class WaterView {
         uniform sampler2D uGround;
         uniform float uNF;
         uniform float uDXF;
-        varying float vSurf;
-        varying float vGround;
         varying vec2 vVel;
         varying vec3 vWorld;
-        varying vec3 vNrm;
         varying float vFoam;
         varying float vSed;
+        varying float vFilm;
         ${SKY_GLSL}
         ${FOG_GLSL}
         ${NOISE_GLSL}
@@ -190,11 +198,15 @@ export class WaterView {
         }
         void main() {
           // per-pixel depth against the finely drawn terrain: smooth shorelines
-          float depth = vSurf - fineGround(vWorld.xz);
-          float a0 = smoothstep(0.0, 0.045, depth);
+          float depth = vWorld.y - fineGround(vWorld.xz);
+          float a0 = smoothstep(0.0, mix(0.045, 0.02, vFilm), depth);
           if (a0 < 0.01) discard;
           vec3 V = normalize(cameraPosition - vWorld);
           float speed = length(vVel);
+          // facet normal of the surface itself (flat on ponds, tilted on falls)
+          vec3 fn = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
+          if (fn.y < 0.0) fn = -fn;
+          float steep = 1.0 - fn.y;
 
           // flow-advected ripples, two phases cross-faded to hide stretching
           vec2 flow = vVel * 0.35;
@@ -206,9 +218,7 @@ export class WaterView {
           vec2 g0 = rippleGrad(base - flow * p0 * 1.6);
           vec2 g1 = rippleGrad(base + 3.7 - flow * p1 * 1.6);
           vec2 g = mix(g0, g1, wgt);
-          // still paddies are glassy; moving water and rain roughen it
           float rough = 0.035 + smoothstep(0.1, 2.5, speed) * 0.32 + uRain * 0.22;
-          // rain rings
           if (uRain > 0.01) {
             vec2 rc = floor(vWorld.xz * 1.5);
             vec2 rf = fract(vWorld.xz * 1.5) - 0.5;
@@ -216,7 +226,7 @@ export class WaterView {
             float ring = sin((length(rf) - ph * 0.5) * 40.0) * smoothstep(0.5, 0.0, length(rf)) * (1.0 - ph);
             g += normalize(rf + 1e-4) * ring * uRain * 0.5;
           }
-          vec3 N = normalize(vNrm + vec3(g.x, 0.0, g.y) * rough);
+          vec3 N = normalize(fn + vec3(g.x, 0.0, g.y) * rough);
 
           vec3 R = reflect(-V, N);
           R.y = abs(R.y) + 0.02;
@@ -225,7 +235,7 @@ export class WaterView {
           float ndv = max(dot(N, V), 0.0);
           float fres = 0.02 + 0.98 * pow(1.0 - ndv, 5.0);
           // still water over dark mud reads as a mirror
-          float mirror = 0.62 * (1.0 - smoothstep(0.4, 3.0, speed)) * smoothstep(0.02, 0.2, depth);
+          float mirror = mix(0.5, 0.62, smoothstep(0.4, 1.5, depth)) * (1.0 - smoothstep(0.4, 3.0, speed)) * smoothstep(0.02, 0.2, depth) * (1.0 - vFilm);
           float rw = clamp(fres + mirror, 0.0, 0.97);
 
           float depthT = smoothstep(0.0, 1.4, depth);
@@ -243,10 +253,11 @@ export class WaterView {
           float spec = pow(sd, 700.0) * 22.0 + pow(sd, 60.0) * 0.7 + glints * pow(sd, 3.0) * 6.0;
           col += uSunColor * spec * sunUp * (1.0 - uRain * 0.7);
 
-          // white water over ledges and in fast runs
-          float foamN = vnoise(vWorld.xz * 3.0 - vVel * uTime * 0.8) * 0.5 + vnoise(vWorld.xz * 7.0 + uTime * 2.0) * 0.5;
-          float foam = smoothstep(0.35, 0.75, vFoam * (0.6 + 0.8 * foamN));
-          col = mix(col, vec3(1.0, 0.99, 0.97) * (0.7 + 0.3 * light), foam * 0.85);
+          // white water: sheets tumbling down a face, fast runs, the foot of falls
+          float foamN = vnoise(vWorld.xz * 3.0 - vVel * uTime * 0.8) * 0.5 + vnoise(vWorld.xz * 7.0 + vec2(0.0, uTime * 2.0)) * 0.5;
+          float foamSrc = clamp(vFoam + smoothstep(0.25, 0.7, steep) * 0.9 * smoothstep(0.25, 1.0, speed), 0.0, 1.0);
+          float foam = smoothstep(0.35, 0.75, foamSrc * (0.6 + 0.8 * foamN));
+          col = mix(col, vec3(1.0, 0.99, 0.97) * (0.7 + 0.3 * light) * (0.55 + 0.45 * (1.0 - uNight)), foam * 0.85);
 
           col = applyFog(col, vWorld);
           float alpha = mix(0.5, 0.94, smoothstep(0.02, 0.8, depth));
@@ -269,16 +280,45 @@ export class WaterView {
     const sed = w.sed;
     const data = this.data;
     const data2 = this.data2;
-    const n = N * N;
-    for (let c = 0; c < n; c++) {
-      const o = c * 4;
-      data[o] = H[c];
-      data[o + 1] = d[c];
-      data[o + 2] = u[c];
-      data[o + 3] = v[c];
-      const s = d[c] > 0.004 ? sed[c] / d[c] : 0;
-      data2[o] = s > 1 ? 255 : s * 255;
-      data2[o + 1] = data2[o + 1] * 0.9; // foam decays
+    for (let j = 0; j < N; j++) {
+      for (let i = 0; i < N; i++) {
+        const c = i + j * N;
+        const o = c * 4;
+        const dc = d[c];
+        let vs = INVALID;
+        if (dc > WET) {
+          vs = H[c] + dc;
+        } else {
+          // a dry cell beside water carries the water level, so the flat surface
+          // reaches the true shoreline; never over a drop
+          let sum = 0;
+          let cnt = 0;
+          for (let dj = -1; dj <= 1; dj++) {
+            const jj = j + dj;
+            if (jj < 0 || jj >= N) continue;
+            for (let di = -1; di <= 1; di++) {
+              const ii = i + di;
+              if (ii < 0 || ii >= N || (!di && !dj)) continue;
+              const k = ii + jj * N;
+              if (d[k] > WET) {
+                sum += H[k] + d[k];
+                cnt++;
+              }
+            }
+          }
+          if (cnt) {
+            const S = sum / cnt;
+            if (H[c] > S - 0.45) vs = S;
+          }
+        }
+        data[o] = vs;
+        data[o + 1] = dc;
+        data[o + 2] = u[c];
+        data[o + 3] = v[c];
+        const s = dc > WET ? sed[c] / dc : 0;
+        data2[o] = s > 1 ? 255 : s * 255;
+        data2[o + 1] = data2[o + 1] * 0.9; // foam decays
+      }
     }
     if (foamCells) {
       for (let k = 0; k < foamCells.length; k += 4) {
