@@ -318,8 +318,7 @@ export class WaterSim {
     this.sed = sedTmp;
     this.sedTmp = sed;
     if (x1 >= x0) {
-      t.dirtyMesh.add(x0 - 1, z0 - 1, x1 + 1, z1 + 1);
-      t.dirtyPhys.add(x0 - 1, z0 - 1, x1 + 1, z1 + 1);
+      t.dirtyErode.add(x0 - 1, z0 - 1, x1 + 1, z1 + 1);
       t.version++;
     }
   }

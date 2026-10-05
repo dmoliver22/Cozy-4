@@ -15,6 +15,8 @@ import {
 } from './constants.js';
 import { makeSimplex2D } from './noise.js';
 
+export const SDF_FAR = 4;
+
 function emptyBox() {
   return { x0: N, z0: N, x1: -1, z1: -1 };
 }
@@ -64,6 +66,11 @@ export class Terrain {
     this.path = new Uint8Array(n);
     this.channel = new Uint8Array(n);
     this.bundNoise = new Float32Array(n);
+    // Signed distance to the edge of the cell's own terrace (negative inside),
+    // or for loose ground the distance to the nearest terrace edge. Built from
+    // the brush discs themselves, so renderers can draw terrace edges as the
+    // smooth curves they were cut as rather than as grid cells.
+    this.sdf = new Float32Array(n).fill(SDF_FAR);
     this.levels = new Float32Array(MAX_TERRACES);
     this.counts = new Int32Array(MAX_TERRACES);
     this.nextTerrace = 1;
@@ -78,6 +85,8 @@ export class Terrain {
     this.dirtyMesh = new DirtyBox();
     this.dirtyPhys = new DirtyBox();
     this.dirtyBund = new DirtyBox();
+    this.dirtyErode = new DirtyBox(); // slow natural change (erosion, slumping)
+    this.sculptVersion = 0; // bumps only when the land is deliberately reshaped
     this.disturbed = []; // cells whose ground was reshaped (plants/houses there get displaced)
     this.version = 0;
 
@@ -133,6 +142,7 @@ export class Terrain {
     this.dirtyMesh.add(x0, z0, x1, z1);
     this.dirtyPhys.add(x0, z0, x1, z1);
     this.version++;
+    this.sculptVersion++;
   }
 
   refreshAll() {
@@ -342,6 +352,16 @@ export class Terrain {
     return stroke;
   }
 
+  /** The level a terrace stroke started here would cut at (for the cursor preview). */
+  previewLevel(x, z, radius) {
+    const gi = clamp(Math.round((x + HALF) / DX), 0, N - 1);
+    const gj = clamp(Math.round((z + HALF) / DX), 0, N - 1);
+    const h0 = this.sampleGround(x, z);
+    let tid = this.terrace[gi + gj * N];
+    if (!tid) tid = this.findTerraceNear(x, z, radius + 2.5, h0, 0.45);
+    return tid ? this.levels[tid] : Math.round(h0 * 20) / 20;
+  }
+
   sampleGround(x, z) {
     let gx = clamp((x + HALF) / DX, 0, N - 1.001);
     let gz = clamp((z + HALF) / DX, 0, N - 1.001);
@@ -439,6 +459,13 @@ export class Terrain {
         const d = Math.hypot(i - gi, j - gj) * DX;
         if (d > reach) continue;
         const c = i + j * N;
+        // signed distance bookkeeping (CSG on discs): union into this terrace,
+        // subtraction from any other terrace, distance-to-edge for loose ground
+        const sd = d - R;
+        const tc = terrace[c];
+        if (sd <= 0) this.sdf[c] = tc === tid ? Math.min(this.sdf[c], sd) : sd;
+        else if (tc === tid || tc === 0) this.sdf[c] = Math.min(this.sdf[c], sd);
+        else this.sdf[c] = Math.max(this.sdf[c], -sd);
         const w = d <= R ? 1 : 1 - (d - R) / RISER_W;
         if (w <= _w[c]) continue;
         const prev = this.futureGround(c);
@@ -499,6 +526,11 @@ export class Terrain {
         const prev = this.futureGround(c);
         const profile = d <= r ? bed + (d / r) ** 2 * depth * 0.6 : bed + depth * 0.6 + (d - r) * 1.4;
         if (profile >= prev - 0.003) continue;
+        if (stroke.lined) {
+          const sd = d - r * 0.8;
+          if (this.terrace[c] && sd > 0) this.sdf[c] = Math.max(this.sdf[c], -sd);
+          else if (sd <= 0) this.sdf[c] = this.terrace[c] ? -sd : Math.min(this.sdf[c], -sd);
+        }
         if (!stroke.lined) {
           // natural gully: plain soil, keeps whatever it was
         } else if (d <= r * 0.8) {
@@ -554,6 +586,9 @@ export class Terrain {
         const w = 1 - d / R;
         const prev = this.futureGround(c);
         const target = prev + (this.base[c] - prev) * Math.min(1, 0.35 * w + 0.08);
+        const sd = d - R * 0.75;
+        if (sd <= 0) this.sdf[c] = this.terrace[c] ? -sd : Math.min(this.sdf[c], -sd);
+        else if (this.terrace[c]) this.sdf[c] = Math.max(this.sdf[c], -sd);
         if (w > 0.25) {
           if (this.terrace[c]) this.setTerrace(c, 0);
           this.wall[c] = 0;
@@ -607,6 +642,7 @@ export class Terrain {
       wall: this.wall.slice(),
       path: this.path.slice(),
       channel: this.channel.slice(),
+      sdf: this.sdf.slice(),
       levels: this.levels.slice(),
     };
   }
@@ -633,7 +669,8 @@ export class Terrain {
           before.terrace[c] !== after.terrace[c] ||
           before.wall[c] !== after.wall[c] ||
           before.path[c] !== after.path[c] ||
-          before.channel[c] !== after.channel[c]
+          before.channel[c] !== after.channel[c] ||
+          before.sdf[c] !== after.sdf[c]
         ) {
           if (i < x0) x0 = i;
           if (i > x1) x1 = i;
@@ -653,6 +690,7 @@ export class Terrain {
         wall: new Uint8Array(w * h),
         path: new Uint8Array(w * h),
         channel: new Uint8Array(w * h),
+        sdf: new Float32Array(w * h),
       };
       for (let j = 0; j < h; j++) {
         for (let i = 0; i < w; i++) {
@@ -664,6 +702,7 @@ export class Terrain {
           out.wall[k] = s.wall[c];
           out.path[k] = s.path[c];
           out.channel[k] = s.channel[c];
+          out.sdf[k] = s.sdf[c];
         }
       }
       return out;
@@ -695,6 +734,7 @@ export class Terrain {
         this.wall[c] = data.wall[k];
         this.path[c] = data.path[k];
         this.channel[c] = data.channel[k];
+        this.sdf[c] = data.sdf[k];
         if (Math.abs(target - prev) > 1e-4) {
           this._markDisturbed(c, prev, target);
           // keep the recorded soil layer; ease the rock
@@ -771,8 +811,7 @@ export class Terrain {
       }
     }
     if (x1 >= x0) {
-      this.dirtyMesh.add(x0 - 1, z0 - 1, x1 + 1, z1 + 1);
-      this.dirtyPhys.add(x0 - 1, z0 - 1, x1 + 1, z1 + 1);
+      this.dirtyErode.add(x0 - 1, z0 - 1, x1 + 1, z1 + 1);
       this.version++;
       return true;
     }

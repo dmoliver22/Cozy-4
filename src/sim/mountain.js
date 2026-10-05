@@ -392,7 +392,7 @@ export function generateMountain(seed = 7) {
   // old terraces hold a little stale rainwater — not enough to spill
   for (const a of ancient) {
     for (let c = 0; c < terrain.n; c++) {
-      if (terrace[c] === a.tid) water0[c] = Math.max(0, a.level + BUND_H * 0.32 - terrain.H[c]);
+      if (terrace[c] === a.tid) water0[c] = Math.max(0, a.level + BUND_H * 0.22 - terrain.H[c]);
     }
   }
 
