@@ -93,6 +93,7 @@ export class Terrain {
     // per-stroke scratch
     this._g0 = new Float32Array(n);
     this._w = new Float32Array(n);
+    this.touched = new Uint8Array(n); // cells the current stroke reached (undo records only these)
 
     const noise = makeSimplex2D(911);
     for (let j = 0; j < N; j++) {
@@ -181,6 +182,7 @@ export class Terrain {
     for (let c = 0; c < this.n; c++) {
       if (terrace[c] === from) {
         terrace[c] = into;
+        this.touched[c] = 1;
         this.dirtyBund.addCell(c);
       }
     }
@@ -220,6 +222,7 @@ export class Terrain {
   // ------------------------------------------------------------------ sculpt animation
 
   setTarget(c, h) {
+    this.touched[c] = 1;
     // retained/reshaped cells keep no loose soil: fold it into the rock layer
     if (this.soil[c] !== 0) {
       this.rock[c] += this.soil[c];
@@ -308,6 +311,7 @@ export class Terrain {
 
   beginStroke(tool, x, z, opts = {}) {
     this.settle();
+    this.touched.fill(0);
     const { rock, soil, _g0, _w } = this;
     for (let c = 0; c < this.n; c++) _g0[c] = rock[c] + soil[c];
     _w.fill(0);
@@ -459,6 +463,7 @@ export class Terrain {
         const d = Math.hypot(i - gi, j - gj) * DX;
         if (d > reach) continue;
         const c = i + j * N;
+        this.touched[c] = 1;
         // signed distance bookkeeping (CSG on discs): union into this terrace,
         // subtraction from any other terrace, distance-to-edge for loose ground
         const sd = d - R;
@@ -524,6 +529,7 @@ export class Terrain {
         if (d > reach) continue;
         const c = i + j * N;
         const prev = this.futureGround(c);
+        this.touched[c] = 1;
         const profile = d <= r ? bed + (d / r) ** 2 * depth * 0.6 : bed + depth * 0.6 + (d - r) * 1.4;
         if (profile >= prev - 0.003) continue;
         if (stroke.lined) {
@@ -558,6 +564,7 @@ export class Terrain {
         const c = i + j * N;
         if (this.path[c]) continue;
         this.path[c] = 1;
+        this.touched[c] = 1;
         this.dirtyMesh.add(i, j, i, j);
         // gently smooth raw ground under new paths (not terraces or channels)
         if (!this.terrace[c] && !this.channel[c] && i > 0 && j > 0 && i < N - 1 && j < N - 1) {
@@ -584,6 +591,7 @@ export class Terrain {
         if (d > R) continue;
         const c = i + j * N;
         const w = 1 - d / R;
+        this.touched[c] = 1;
         const prev = this.futureGround(c);
         const target = prev + (this.base[c] - prev) * Math.min(1, 0.35 * w + 0.08);
         const sd = d - R * 0.75;
@@ -654,8 +662,12 @@ export class Terrain {
     return s;
   }
 
-  /** Compact before/after record for undo; null if nothing changed. */
-  diff(before, after) {
+  /**
+   * Compact before/after record for undo; null if nothing changed. Only cells
+   * the stroke itself reached are recorded, so undo never rewinds erosion or
+   * other slow natural change elsewhere on the mountain.
+   */
+  diff(before, after, mask = this.touched) {
     let x0 = N;
     let z0 = N;
     let x1 = -1;
@@ -663,6 +675,7 @@ export class Terrain {
     for (let j = 0; j < N; j++) {
       for (let i = 0; i < N; i++) {
         const c = i + j * N;
+        if (!mask[c]) continue;
         if (
           Math.abs(before.rock[c] - after.rock[c]) > 1e-5 ||
           Math.abs(before.soil[c] - after.soil[c]) > 1e-5 ||
@@ -707,8 +720,13 @@ export class Terrain {
       }
       return out;
     };
+    const bw = x1 - x0 + 1;
+    const bh = z1 - z0 + 1;
+    const m = new Uint8Array(bw * bh);
+    for (let j = 0; j < bh; j++) for (let i = 0; i < bw; i++) m[i + j * bw] = mask[x0 + i + (z0 + j) * N];
     return {
       box: { x0, z0, x1, z1 },
+      mask: m,
       before: pick(before),
       after: pick(after),
       levelsBefore: before.levels,
@@ -728,6 +746,7 @@ export class Terrain {
       for (let i = x0; i <= x1; i++) {
         const c = i + j * N;
         const k = i - x0 + (j - z0) * w;
+        if (rec.mask && !rec.mask[k]) continue;
         const target = data.rock[k] + data.soil[k];
         const prev = this.rock[c] + this.soil[c];
         this.terrace[c] = data.terrace[k];

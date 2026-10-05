@@ -6,7 +6,6 @@
 //    by drag from the simulated current on each submerged paddle.
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { N, DX, HALF } from '../sim/constants.js';
 import { patchMaterial } from '../render/shaders.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 

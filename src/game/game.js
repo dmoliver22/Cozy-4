@@ -14,7 +14,7 @@ import { Atmosphere } from '../render/atmosphere.js';
 import { Particles, P_SPRAY, P_DUST, P_RAIN, P_PETAL, P_FIREFLY, P_MIST, P_SPARK } from '../render/particles.js';
 import { Cursor } from '../render/cursor.js';
 import { clodGeometry, seedGeometry, petalGeometry } from '../render/models.js';
-import { Crops, RICE, TEA, FLOWER } from './crops.js';
+import { Crops } from './crops.js';
 import { Village } from './village.js';
 import { Trees, Birds } from './nature.js';
 import { Goals, wateredTerraces, hamletsJoined } from './goals.js';

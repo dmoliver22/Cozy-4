@@ -62,6 +62,7 @@ export class Tools {
       this.sowAcc = 0.99;
       return;
     }
+    g.terrain.settle();
     this.before = g.terrain.snapshot();
     this.stroke = g.terrain.beginStroke(this.tool, hit.x, hit.z, { radius: this.r });
     this.strokeCount++;

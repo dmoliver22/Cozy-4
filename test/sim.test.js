@@ -124,6 +124,20 @@ test('undo restores the land', () => {
   }
 });
 
+test('undo records only what the stroke touched, not erosion elsewhere', () => {
+  const t = slope();
+  const before = t.snapshot();
+  const s = t.beginStroke('terrace', 0, 0, { radius: 3 });
+  t.strokeTo(s, 4, 0);
+  // meanwhile a stream far away moves a little soil
+  for (let k = 0; k < 50; k++) t.soil[5 + (140 - k) * N] += 0.05;
+  t.endStroke();
+  const rec = t.diff(before, t.futureSnapshot());
+  assert.ok(rec);
+  const { x0, z0, x1, z1 } = rec.box;
+  assert.ok(x1 - x0 < 20 && z1 - z0 < 20, `record box should stay local: ${JSON.stringify(rec.box)}`);
+});
+
 test('demo mountain: the spring stays in its pool until a cut leads it to the old terraces', () => {
   const m = generateMountain(7);
   const { terrain, features } = m;

@@ -184,6 +184,53 @@ export class TerrainView {
 
     this.updateGeometry(0, 0, N - 1, N - 1);
     this.updateAttributes();
+    this._buildApron(scene, floorMat);
+  }
+
+  /** Low hills rolling from the edge of the sculptable land down to the valley floor. */
+  _buildApron(scene, material) {
+    const NF = this.NF;
+    const fh = this.fineH;
+    const perim = [];
+    const step = 2;
+    for (let i = 0; i < NF - 1; i += step) perim.push([i, 0]);
+    for (let j = 0; j < NF - 1; j += step) perim.push([NF - 1, j]);
+    for (let i = NF - 1; i > 0; i -= step) perim.push([i, NF - 1]);
+    for (let j = NF - 1; j > 0; j -= step) perim.push([0, j]);
+    const rings = [0, 5, 14, 30, 60, 110];
+    const pos = [];
+    const idx = [];
+    const P = perim.length;
+    for (let r = 0; r < rings.length; r++) {
+      for (let k = 0; k < P; k++) {
+        const [i, j] = perim[k];
+        const x = i * this.dxf - HALF;
+        const z = j * this.dxf - HALF;
+        const l = Math.hypot(x, z) || 1;
+        const d = rings[r];
+        const h0 = fh[i + j * NF];
+        const t = Math.min(1, d / 70);
+        const bump = Math.sin(k * 0.37 + r * 1.3) * 0.6 * (1 - t) * Math.min(1, d / 5);
+        const y = h0 + (-2.6 - h0) * (t * t * (3 - 2 * t)) + bump;
+        pos.push(x + (x / l) * d, y, z + (z / l) * d);
+      }
+    }
+    for (let r = 0; r < rings.length - 1; r++) {
+      for (let k = 0; k < P; k++) {
+        const a = r * P + k;
+        const b = r * P + ((k + 1) % P);
+        const c = (r + 1) * P + k;
+        const d = (r + 1) * P + ((k + 1) % P);
+        idx.push(a, b, c, b, d, c);
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    this.apron = new THREE.Mesh(geo, material);
+    this.apron.receiveShadow = true;
+    scene.add(this.apron);
   }
 
   /**

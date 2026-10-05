@@ -285,6 +285,7 @@ addEventListener('keydown', (e) => {
     document.body.classList.toggle('hidden-ui', uiHidden);
   } else if (e.code === 'KeyP') photoPending = true;
   else if (e.code === 'KeyM') hooks.toggleSound();
+  else if (e.code === 'KeyC' || e.code === 'Home') Object.assign(cam.goal, { az: 0.22, el: 0.62, dist: 150, tx: 0, tz: 14, ty: 8 });
   else if (e.code === 'Escape') ui.toggleHelp(false);
   else cam.keys.add(e.code);
 });

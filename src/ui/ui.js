@@ -56,6 +56,7 @@ export class UI {
 
   _build() {
     const r = this.root;
+    r.querySelector('.boot')?.remove();
     // title
     this.title = el('div', 'title');
     this.title.innerHTML = `
@@ -160,7 +161,7 @@ export class UI {
       </ul>
       <p><kbd>Left drag</kbd> use tool · <kbd>Right drag</kbd> orbit · <kbd>Wheel</kbd> zoom · <kbd>Middle</kbd>/<kbd>Shift</kbd>+drag pan<br/>
       Touch: one finger uses the tool, two fingers orbit and pinch to zoom.<br/>
-      <kbd>1</kbd>–<kbd>5</kbd> tools · <kbd>[</kbd> <kbd>]</kbd> size · <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo · <kbd>H</kbd> hide interface · <kbd>P</kbd> photo</p>
+      <kbd>1</kbd>–<kbd>5</kbd> tools · <kbd>[</kbd> <kbd>]</kbd> size · <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo · <kbd>C</kbd> recentre · <kbd>H</kbd> hide interface · <kbd>P</kbd> photo · <kbd>M</kbd> mute</p>
       <p style="font-size:13px">Made as a love letter to the rice terraces of Southeast Asia and the Andes. Architecture and music here are gentle placeholders — the full game is to be made with people from those places.</p>
       <div class="row"><button class="btn" data-close>Back to the mountain</button><button class="btn ghost" data-new>New mountain</button></div>`;
     this.help.querySelector('[data-close]').addEventListener('click', () => this.toggleHelp(false));

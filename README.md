@@ -35,7 +35,8 @@ You need a browser with WebGL 2 (any recent Chrome, Edge, Firefox or Safari). `?
 | Pan | Middle drag, <kbd>Shift</kbd>+drag, <kbd>WASD</kbd> | — |
 | Tools | <kbd>1</kbd>–<kbd>5</kbd>, brush size <kbd>[</kbd> <kbd>]</kbd> or <kbd>Alt</kbd>+wheel | Tray |
 | Undo / redo | <kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> | Tray |
-| Hide UI / photo | <kbd>H</kbd> / <kbd>P</kbd> | Camera button |
+| Recentre | <kbd>C</kbd> | — |
+| Hide UI / photo / mute | <kbd>H</kbd> / <kbd>P</kbd> / <kbd>M</kbd> | Camera button |
 
 ### Tools
 

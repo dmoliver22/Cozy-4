@@ -2,7 +2,7 @@
 // back by an old stone berm, five abandoned terraces waiting below it, a
 // stream down to a lake at the foot, and a second free-flowing spring.
 
-import { N, DX, HALF, BUND_H, clamp, toWorld } from './constants.js';
+import { N, DX, HALF, clamp, toWorld } from './constants.js';
 import { makeSimplex2D, fbm, ridged, smoothstep, mulberry32 } from './noise.js';
 import { Terrain } from './terrain.js';
 
