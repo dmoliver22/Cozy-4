@@ -20,8 +20,11 @@ This repository is the **Stage 1 web toy**: one mountain, three light goals (plu
 npm install
 npm run dev        # http://localhost:5173
 npm run build      # static build in dist/ (relative paths — zip it for itch.io)
+npm run build:artifact   # one self-contained page, dist-artifact/terraces.html
 npm test           # simulation tests (node)
 ```
+
+`build:artifact` is for hosts that wrap the page in their own skeleton and only allow inline scripts and styles, such as a claude.ai Artifact. Fonts are inlined, and photos go through the host's save prompt because plain downloads are blocked there.
 
 You need a browser with WebGL 2 (any recent Chrome, Edge, Firefox or Safari). `?quality=low` turns off bloom and MSAA and halves the shadow map. It's the default on touch devices. `?quality=potato` also drops shadows and the fine terrain mesh. `?tm=aces` or `?tm=agx` switch the tone mapping.
 
@@ -72,6 +75,8 @@ Nearly everything on screen is simulated rather than animated.
 | **Life** | Crops grow by how well the local water suits them. Homes appear on a spring-damper with squash and stretch, villagers steer over the heightfield preferring paths and avoiding deep water, buffalo wade in paddies, and birds flock as boids. | `src/game/*.js` |
 | **Sound** | Synthesised at runtime. Karplus–Strong plucked strings, modal-synthesis bells and gong, water "plips" at the Minnaert resonance of the trapped bubble, and running water, wind and rain from noise driven by the simulation's flow energy. | `src/audio/audio.js` |
 
+If the page isn't allowed to compile WebAssembly (some embedding sandboxes forbid it), `src/physics/fallback.js` takes over. It's a small JS integrator for the same bodies: sphere contact with the live heightfield, restitution, friction and rolling, and the same buoyancy, current drag and wind. It has no joints, so rope bridges and water wheels are skipped in that mode.
+
 ## Rendering notes
 
 The simulation runs on a 160×160 grid with 1-unit cells. The terrain is drawn at twice that resolution. Every terrace stroke leaves a signed-distance field built from the brush discs, so terrace edges and their bunds are rebuilt as the smooth curves they were cut as, not as grid steps. Water is drawn from the simulation's depth and velocity every frame, and its shoreline is resolved per pixel against the fine terrain.
@@ -81,12 +86,13 @@ The simulation runs on a 160×160 grid with 1-unit cells. The terrain is drawn a
 ```
 src/
   sim/        pure JS, unit-tested in node: terrain, water, wind, ecology, mountain generator
-  physics/    Rapier world + water coupling
+  physics/    Rapier world + water coupling, and a JS fallback for when WebAssembly is blocked
   render/     three.js views: terrain, water, sky/day cycle, mist, particles, post (tilt-shift, bloom, grade)
   game/       crops, village, structures (bridges, wheels), nature (trees, birds), goals, tools + undo, camera, save, Game orchestrator
   ui/         tray, goal card, hints, title screen
   audio/      procedural audio engine
 test/         simulation tests (mass conservation, paddy filling, channels, undo, local undo records, the first-cut cascade)
+scripts/      build-artifact.mjs: the single-file hosted build
 ```
 
 ## Shipping to itch.io

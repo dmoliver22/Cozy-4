@@ -42,10 +42,11 @@ function el(tag, cls, html) {
 }
 
 export class UI {
-  constructor(root, game, hooks) {
+  constructor(root, game, hooks, opts = {}) {
     this.root = root;
     this.g = game;
     this.hooks = hooks;
+    this.opts = { photo: true, ...opts };
     this.hintQueue = [];
     this.flags = {};
     this.started = false;
@@ -161,13 +162,21 @@ export class UI {
       </ul>
       <p><kbd>Left drag</kbd> use tool · <kbd>Right drag</kbd> orbit · <kbd>Wheel</kbd> zoom · <kbd>Middle</kbd>/<kbd>Shift</kbd>+drag pan<br/>
       Touch: one finger uses the tool, two fingers orbit and pinch to zoom.<br/>
-      <kbd>1</kbd>–<kbd>5</kbd> tools · <kbd>[</kbd> <kbd>]</kbd> size · <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo · <kbd>C</kbd> recentre · <kbd>H</kbd> hide interface · <kbd>P</kbd> photo · <kbd>M</kbd> mute</p>
+      <kbd>1</kbd>–<kbd>5</kbd> tools · <kbd>[</kbd> <kbd>]</kbd> size · <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo · <kbd>C</kbd> recentre · <kbd>H</kbd> hide interface<span class="photo-key"> · <kbd>P</kbd> photo</span> · <kbd>M</kbd> mute</p>
       <p style="font-size:13px">Made as a love letter to the rice terraces of Southeast Asia and the Andes. Architecture and music here are gentle placeholders — the full game is to be made with people from those places.</p>
       <div class="row"><button class="btn" data-close>Back to the mountain</button><button class="btn ghost" data-new>New mountain</button></div>`;
     this.help.querySelector('[data-close]').addEventListener('click', () => this.toggleHelp(false));
     this.help.querySelector('[data-new]').addEventListener('click', () => this.hooks.newGame());
     r.appendChild(this.help);
+    this.setPhoto(this.opts.photo);
     this.refreshTray();
+  }
+
+  /** Show or hide the photo button (a hosted page may only learn later that it can save files). */
+  setPhoto(on) {
+    this.opts.photo = !!on;
+    this.btnPhoto.style.display = on ? '' : 'none';
+    this.help.querySelector('.photo-key').style.display = on ? '' : 'none';
   }
 
   _iconBtn(icon, title, fn) {

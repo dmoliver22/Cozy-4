@@ -12,6 +12,37 @@ import { TOOLS } from './game/tools.js';
 import { saveGame, loadGame, hasSave, clearSave } from './game/save.js';
 import { AudioEngine } from './audio/audio.js';
 
+// How a photo reaches the player. A hosted build runs in a sandbox that blocks
+// plain downloads, so it offers the picture through the host's save prompt,
+// and shows no photo button when the host can't do that.
+let savePhoto = null;
+if (import.meta.env.VITE_ARTIFACT) {
+  Promise.resolve(window.claude?.use?.('downloads'))
+    .then((downloads) => {
+      if (!downloads) return;
+      savePhoto = (blob, filename) =>
+        downloads.save({ filename, data: blob }).catch((err) => {
+          const code = err?.code;
+          if (code === 'declined') return;
+          if (code === 'rate_limited') ui?.toast('A photo is already waiting to be saved');
+          else if (code === 'too_large' || code === 'bad_request' || code === 'transform_error') ui?.toast('That photo could not be saved');
+          else {
+            savePhoto = null;
+            ui?.setPhoto(false);
+          }
+        });
+      ui?.setPhoto(true);
+    })
+    .catch(() => {});
+} else {
+  savePhoto = (blob, filename) => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  };
+}
 const canvas = document.getElementById('scene');
 const root = document.getElementById('ui');
 const coarse = matchMedia('(pointer: coarse)').matches;
@@ -59,12 +90,19 @@ function fitCamera() {
 fitCamera();
 
 async function boot() {
-  await initRapier();
-  game = new Game(scene, { seed: 7, meshDetail: quality === 'potato' ? 1 : 2 });
+  let rapier = true;
+  try {
+    await initRapier();
+  } catch (err) {
+    // e.g. a sandbox that forbids compiling WebAssembly: use the JS integrator
+    rapier = false;
+    console.warn('Rapier unavailable, using the fallback physics', err);
+  }
+  game = new Game(scene, { seed: 7, meshDetail: quality === 'potato' ? 1 : 2, rapier });
   if (quality !== 'high') game.sky.sun.shadow.mapSize.set(1024, 1024);
   if (quality === 'potato') renderer.shadowMap.enabled = false;
   post = new Post(renderer, scene, camera, quality);
-  ui = new UI(root, game, hooks);
+  ui = new UI(root, game, hooks, { photo: !!savePhoto });
   ui.ready(hasSave());
   requestAnimationFrame(frame);
 }
@@ -283,7 +321,7 @@ addEventListener('keydown', (e) => {
   else if (e.code === 'KeyH') {
     uiHidden = !uiHidden;
     document.body.classList.toggle('hidden-ui', uiHidden);
-  } else if (e.code === 'KeyP') photoPending = true;
+  } else if (e.code === 'KeyP' && savePhoto) photoPending = true;
   else if (e.code === 'KeyM') hooks.toggleSound();
   else if (e.code === 'KeyC' || e.code === 'Home') Object.assign(cam.goal, { az: 0.22, el: 0.62, dist: 150, tx: 0, tz: 14, ty: 8 });
   else if (e.code === 'Escape') ui.toggleHelp(false);
@@ -339,13 +377,9 @@ function frame(now) {
   post.render(dt);
   if (photoPending) {
     photoPending = false;
+    const name = `terraces-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.png`;
     canvas.toBlob((blob) => {
-      if (!blob) return;
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `terraces-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.png`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      if (blob && savePhoto) savePhoto(blob, name);
     });
     if (game.cursor.hint) game.cursor.hint.visible = true;
     ui.photoFlash();

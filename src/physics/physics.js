@@ -21,6 +21,7 @@ export class Physics {
     this.terrain = terrain;
     this.water = water;
     this.waterTimeScale = timeScale;
+    this.supportsJoints = true;
     this.world = new RAPIER.World({ x: 0, y: -GRAVITY, z: 0 });
     this.world.timestep = 1 / 60;
     this.world.numSolverIterations = 6;

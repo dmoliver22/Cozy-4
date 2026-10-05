@@ -6,6 +6,7 @@ import { WaterSim } from '../sim/water.js';
 import { Ecology } from '../sim/ecology.js';
 import { Wind } from '../sim/wind.js';
 import { Physics } from '../physics/physics.js';
+import { FallbackPhysics } from '../physics/fallback.js';
 import { shared, patchMaterial } from '../render/shaders.js';
 import { Sky } from '../render/sky.js';
 import { TerrainView } from '../render/terrainView.js';
@@ -40,7 +41,7 @@ export class Game {
     for (const s of m.springs) this.water.addSpring(s.x, s.z, s.rate, s.name);
     this.eco = new Ecology(this.terrain, this.water);
     this.wind = new Wind();
-    this.physics = new Physics(this.terrain, this.water, TIME_SCALE);
+    this.physics = opts.rapier === false ? new FallbackPhysics(this.terrain, this.water, TIME_SCALE) : new Physics(this.terrain, this.water, TIME_SCALE);
     this.physics.wind = this.wind;
     this.audio = null;
     this.ui = null;

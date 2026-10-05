@@ -2,13 +2,14 @@
   "name": "terraces",
   "version": "0.1.0",
   "private": true,
-  "description": "Terraces — a cozy, physics-driven builder: sculpt a misty mountainside into terraced fields and let the water do the rest.",
+  "description": "Terraces \u2014 a cozy, physics-driven builder: sculpt a misty mountainside into terraced fields and let the water do the rest.",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "build:artifact": "node scripts/build-artifact.mjs"
   },
   "license": "UNLICENSED",
   "dependencies": {

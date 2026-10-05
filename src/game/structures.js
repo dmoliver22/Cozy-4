@@ -63,6 +63,7 @@ export class Structures {
     this.scene = scene;
     this.g = game;
     this.world = game.physics.world;
+    this.enabled = !!(this.world && game.physics.supportsJoints);
     this.bridges = [];
     this.wheels = [];
     this.timer = 0;
@@ -93,7 +94,7 @@ export class Structures {
 
   /** After a footpath stroke: span any stretch of running water it crossed. */
   pathStroke(points) {
-    if (points.length < 2) return;
+    if (!this.enabled || points.length < 2) return;
     const g = this.g;
     const samples = [];
     for (let k = 0; k < points.length - 1; k++) {
@@ -135,6 +136,7 @@ export class Structures {
   }
 
   buildBridge(A, B) {
+    if (!this.enabled) return null;
     const g = this.g;
     for (const b of this.bridges) {
       const d1 = Math.hypot(b.A.x - A.x, b.A.z - A.z) + Math.hypot(b.B.x - B.x, b.B.z - B.z);
@@ -285,6 +287,7 @@ export class Structures {
 
   /** Called before each physics step: current drag on every submerged paddle. */
   applyForces() {
+    if (!this.enabled) return;
     const g = this.g;
     const ws = this._ws;
     const ts = g.physics.waterTimeScale;
@@ -371,6 +374,7 @@ export class Structures {
   }
 
   _maybeWheel() {
+    if (!this.enabled) return;
     const g = this.g;
     if (this.wheels.length >= 4 || g.village.count < 2) return;
     let best = null;
